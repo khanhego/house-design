@@ -35,3 +35,24 @@ describe('tracker (BR-10)', async () => {
     expect(deviceIdOf(s)).toBe(deviceIdOf(s))
   })
 })
+
+describe('đi bộ trong nhà — va chạm tường', async () => {
+  const { floorFromRects } = await import('@hd/core')
+  const { blockersOf, isFree, stepTowards } = await import('../src/scene/walk.ts')
+  // hai phòng 4 × 4 m cạnh nhau, tường ngăn ở x = 4 m
+  const f = floorFromRects({ name: 'T1', order: 1, elevation: 0, rooms: [{ name: 'A', function: 'living', rect: [0, 0, 4000, 4000] }, { name: 'B', function: 'bedroom', rect: [4000, 0, 4000, 4000] }] })
+  const mid = f.walls.find((w) => w.a[0] === 4000 && w.b[0] === 4000)!
+  it('tường ngăn chặn người, dừng trước tường', () => {
+    const end = stepTowards([2, 1], [6, 1], blockersOf(f))
+    expect(end[0]).toBeLessThan(4 - 0.2)
+    expect(end[0]).toBeGreaterThan(3.5)
+  })
+  it('qua được ô cửa đi, không qua được cửa sổ', () => {
+    const withDoor = { ...f, openings: [{ id: 'd', wallId: mid.id, kind: 'door' as const, offset: 1500, width: 900, height: 2100, sill: 0, hinge: 'start' as const, swing: 'left' as const }] }
+    const y = (Math.min(mid.a[1], mid.b[1]) + 1950) / 1000
+    expect(stepTowards([2, y], [6, y], blockersOf(withDoor))[0]).toBeCloseTo(6)
+    const withWindow = { ...f, openings: [{ ...withDoor.openings[0], kind: 'window' as const, sill: 900, height: 1200 }] }
+    expect(stepTowards([2, y], [6, y], blockersOf(withWindow))[0]).toBeLessThan(4)
+    expect(isFree([2, 2], blockersOf(f))).toBe(true)
+  })
+})

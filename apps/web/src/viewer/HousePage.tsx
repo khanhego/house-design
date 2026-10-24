@@ -1,10 +1,10 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useProgress } from '@react-three/drei'
 import { assignItemsToRooms, formatArea, roomArea, sortedFloors } from '@hd/core'
 import type { Floor, PublicHousePayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
-import type { ViewMode, WallMode } from '../scene/HouseScene.tsx'
+import type { CameraApi, ViewMode, WallMode } from '../scene/HouseScene.tsx'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { ContactButtons, ContactMenu } from './Contact.tsx'
 import { ItemPanel } from './ItemPanel.tsx'
@@ -59,6 +59,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const [roomId, setRoomId] = useState<string | null>(q.get('room'))
   const onLead = onLeadCtx ? () => onLeadCtx({ floorId: floorId !== 'all' ? floorId : undefined, roomId: roomId ?? undefined }) : undefined
   const [mode, setMode] = useState<ViewMode>('orbit')
+  const cameraApi = useRef<CameraApi | null>(null)
   const [wallMode, setWallMode] = useState<WallMode>('auto')
   const [night, setNight] = useState(false)
   const [tab, setTab] = useState<'3d' | 'plan'>(q.get('tab') === 'plan' ? 'plan' : '3d')
@@ -194,11 +195,11 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const hint =
     mode === 'inside'
       ? matchMedia('(pointer: coarse)').matches
-        ? 'Kéo để nhìn quanh · Chạm sàn để đi tới'
-        : 'Kéo để nhìn quanh · Bấm sàn để đi tới'
+        ? 'Chạm sàn để đi tới · Kéo để nhìn quanh · Chụm để lại gần / lùi xa'
+        : 'Bấm sàn để đi tới · W/S hoặc ↑/↓ đi tới–lùi, A/D hoặc ←/→ xoay người (Shift: đi nhanh) · Kéo để nhìn quanh · Cuộn để lại gần / lùi xa'
       : matchMedia('(pointer: coarse)').matches
         ? 'Kéo một ngón để xoay · Chụm để phóng to · Chạm sàn để vào phòng'
-        : 'Kéo để xoay · Cuộn để phóng to · Bấm sàn để vào phòng'
+        : 'Kéo để xoay · Cuộn để phóng to đúng chỗ con trỏ · Chuột phải để kéo ngang · Nhấp đúp sàn để lại gần'
 
   return (
     <div className="v2">
@@ -245,6 +246,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   onHoverItem={setHoverItemId}
                   onSelectRoom={chooseRoom}
                   onReady={() => (setReady(true), events.ready?.())}
+                  cameraApi={cameraApi}
                 />
               </Suspense>
             </div>
@@ -334,6 +336,11 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   {night ? 'Đêm' : 'Ngày'}
                 </button>
               )}
+              <div className="zoom-btns" role="group" aria-label="Thu phóng">
+                <button className="icon-btn" onClick={() => cameraApi.current?.zoom(-1)} title="Phóng to" aria-label="Phóng to">＋</button>
+                <button className="icon-btn" onClick={() => cameraApi.current?.zoom(1)} title="Thu nhỏ" aria-label="Thu nhỏ">−</button>
+                <button className="icon-btn" onClick={() => cameraApi.current?.reset()} title={mode === 'inside' ? 'Về sau lưng người mẫu' : 'Về góc nhìn ban đầu'} aria-label="Về góc nhìn ban đầu">⌂</button>
+              </div>
               <button className="icon-btn hide-sm" onClick={fullscreen} title="Toàn màn hình">⤢</button>
               <button className="icon-btn" onClick={share} title="Chia sẻ" aria-label="Chia sẻ">↗<span className="hide-sm"> Chia sẻ</span></button>
             </div>

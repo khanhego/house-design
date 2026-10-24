@@ -288,3 +288,5 @@
   .lead-scrim { align-items: flex-end; }
   .lead { height: auto; max-height: 92dvh; border-radius: 18px 18px 0 0; }
 }
+.zoom-btns { display: inline-flex; gap: 2px; }
+.zoom-btns .icon-btn { min-width: 34px; font-size: 16px; line-height: 1; }
