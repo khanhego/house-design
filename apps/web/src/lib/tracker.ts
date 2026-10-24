@@ -3,6 +3,7 @@
 export type EventType =
   | 'project_open' | 'house_open' | 'floor_select' | 'room_select' | 'walk_mode' | 'item_open'
   | 'plan_open' | 'pdf_download' | 'contact_click' | 'lead_submit' | 'fallback_shown'
+  | 'tour_open' | 'tour_scene' | 'tour_complete'
 
 interface KV {
   get(k: string): string | null

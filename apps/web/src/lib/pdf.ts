@@ -3,26 +3,12 @@ import 'svg2pdf.js'
 import { planSvg, sortedFloors, floorGrossArea, formatArea } from '@hd/core'
 import type { PublicHousePayload } from '@hd/core'
 import { DRAW, pickScale } from './pdfScale.ts'
+import { PDF_FONT, registerPdfFonts } from './pdfFonts.ts'
 
 /* Xuất PDF mặt bằng trong trình duyệt (FR-07.04, 02 §9): A3 ngang, mỗi tầng một trang, font tiếng Việt nhúng (R-10). */
 
-const FONT = 'BeVietnamPro'
+const FONT = PDF_FONT
 const PAGE = { w: 420, h: 297 }
-
-const toBase64 = (buf: ArrayBuffer) => {
-  let s = ''
-  const bytes = new Uint8Array(buf)
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(s)
-}
-
-let fontCache: { regular: string; bold: string } | null = null
-const loadFonts = async () => {
-  if (fontCache) return fontCache
-  const [r, b] = await Promise.all(['/fonts/BeVietnamPro-Regular.ttf', '/fonts/BeVietnamPro-SemiBold.ttf'].map((u) => fetch(u).then((x) => x.arrayBuffer())))
-  fontCache = { regular: toBase64(r), bold: toBase64(b) }
-  return fontCache
-}
 
 const imageData = async (url: string) => {
   const blob = await fetch(url).then((r) => r.blob())
@@ -41,12 +27,8 @@ const imageData = async (url: string) => {
 
 
 export const exportPlanPdf = async (data: PublicHousePayload) => {
-  const fonts = await loadFonts()
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' })
-  doc.addFileToVFS('BeVietnamPro-Regular.ttf', fonts.regular)
-  doc.addFileToVFS('BeVietnamPro-SemiBold.ttf', fonts.bold)
-  doc.addFont('BeVietnamPro-Regular.ttf', FONT, 'normal')
-  doc.addFont('BeVietnamPro-SemiBold.ttf', FONT, 'bold')
+  await registerPdfFonts(doc)
   doc.setFont(FONT, 'normal')
 
   const logo = data.branding.logoUrl ? await imageData(data.branding.logoUrl).catch(() => null) : null

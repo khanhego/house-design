@@ -18,6 +18,7 @@ import { FloorList } from './FloorList.tsx'
 const ModelTab = lazy(() => import('./ModelTab.tsx').then((m) => ({ default: m.ModelTab })))
 const ItemsTab = lazy(() => import('./ItemsTab.tsx').then((m) => ({ default: m.ItemsTab })))
 const ViewsTab = lazy(() => import('./ViewsTab.tsx').then((m) => ({ default: m.ViewsTab })))
+const TourTab = lazy(() => import('./TourTab.tsx').then((m) => ({ default: m.TourTab })))
 
 const TOOLS: { id: Tool; label: string; key: string; hint: string }[] = [
   { id: 'select', label: 'Chọn', key: 'v', hint: 'Chọn, kéo đỉnh; kéo nền để di chuyển khung nhìn' },
@@ -37,6 +38,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'model', label: 'Mô hình' },
   { id: 'items', label: 'Đồ' },
   { id: 'views', label: 'Điểm nhìn & ảnh' },
+  { id: 'tour', label: 'Ảnh thật' },
 ]
 
 const SAVE_LABEL: Record<string, string> = { idle: '', saving: 'Đang lưu…', error: 'Mất kết nối — sẽ lưu khi có mạng', conflict: 'Xung đột', locked: 'Chỉ xem' }
@@ -204,6 +206,7 @@ export const EditorPage = ({ me }: { me: Me }) => {
             {tab === 'model' && projectId && <ModelTab projectId={projectId} onChecks={setChecks} />}
             {tab === 'items' && <ItemsTab />}
             {tab === 'views' && projectId && <ViewsTab projectId={projectId} />}
+            {tab === 'tour' && projectId && <TourTab projectId={projectId} />}
           </Suspense>
         </section>
         {tab === 'frame' && <aside className="ed-right"><Inspector files={files} inputFiles={inputList} /></aside>}

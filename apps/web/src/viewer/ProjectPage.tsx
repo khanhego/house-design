@@ -54,12 +54,16 @@ export const ProjectPage = ({ data, onLead, onContact }: { data: PublicProjectPa
                 <Link key={h.slug} className="house-card" to={`/v/${data.project.slug}/${h.slug}${search}`}>
                   <div className="house-card-img">{h.coverUrl ? <img src={h.coverUrl} alt="" loading="lazy" /> : null}</div>
                   <div className="house-card-body">
-                    <span className="tag">{vi.houseType[h.houseType]}</span>
+                    <span className="modes">
+                      <span className="tag">{vi.houseType[h.houseType]}</span>
+                      {h.modes?.includes('3d') && <span className="tag">3D</span>}
+                      {h.modes?.includes('tour') && <span className="tag">Ảnh thật</span>}
+                    </span>
                     <h2>{h.name}</h2>
                     <p className="muted">
-                      {fmtArea(h.declaredArea)} · {h.bedrooms} PN · {h.floors} tầng
+                      {fmtArea(h.declaredArea)} · {h.bedrooms} PN{h.floors ? ` · ${h.floors} tầng` : ''}
                     </p>
-                    <span className="btn primary small">Xem 3D</span>
+                    <span className="btn primary small">{h.modes?.includes('3d') === false ? 'Xem ảnh thật' : 'Xem 3D'}</span>
                   </div>
                 </Link>
               ))}

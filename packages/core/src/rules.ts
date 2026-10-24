@@ -225,7 +225,7 @@ export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => 
   }
 
   if (!doc.coverFileId) out.push({ level: 'block', code: 'NO_COVER', message: 'Chưa có ảnh đại diện' })
-  if (!doc.viewpoints.some((v) => v.isDefault))
+  if (hasModel3d(doc) && !doc.viewpoints.some((v) => v.isDefault))
     out.push({ level: 'warn', code: 'NO_DEFAULT_VIEWPOINT', message: 'Chưa đặt điểm nhìn mặc định' })
   return out
 }

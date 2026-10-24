@@ -8,6 +8,8 @@ export interface LeadContext {
   houseName?: string
   floorId?: string
   roomId?: string
+  /** đang xem tour ảnh thật (item 02) */
+  sceneId?: string
 }
 
 const INTERESTS = [
@@ -106,7 +108,7 @@ export const LeadDrawer = ({ project, branding, antiBot, context, source, device
       await api('POST', '/api/v1/public/leads', {
         projectSlug: project.slug, houseSlug: context.houseSlug ?? null, name: f.name.trim() || null, phone: f.phone, email: f.email.trim() || null,
         interest: f.interest || null, message: f.message.trim() || null, consent: true,
-        context: context.floorId ? { floorId: context.floorId, roomId: context.roomId } : null,
+        context: context.sceneId ? { sceneId: context.sceneId } : context.floorId ? { floorId: context.floorId, roomId: context.roomId } : null,
         source, deviceId, website: f.website, formToken: await freshToken(), captchaToken: captcha,
       })
       setState('done')

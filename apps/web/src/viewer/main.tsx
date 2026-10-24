@@ -11,6 +11,7 @@ import { No3D, Unavailable } from './Fallback.tsx'
 import { useToast } from './Toast.tsx'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { api } from '../lib/api.ts'
+import { hasTour } from '@hd/core'
 import type { Branding, PublicHousePayload, PublicProjectInfo, PublicProjectPayload } from '@hd/core'
 import { useEffect } from 'react'
 import { createTracker } from '../lib/tracker.ts'
@@ -95,12 +96,12 @@ const HouseRoute = () => {
     if (!WEBGL) tracker.track('fallback_shown', { houseSlug: house })
   }, [data, tracker, house])
   const ev = (type: Parameters<Tracker['track']>[0]) => (targetId?: string | null) => tracker.track(type, { houseSlug: house, targetId: targetId ?? undefined })
-  const openLead = (c: { floorId?: string; roomId?: string } = {}) => data && lead.open({ houseSlug: house, houseName: data.house.name, ...c })
+  const openLead = (c: { floorId?: string; roomId?: string; sceneId?: string } = {}) => data && lead.open({ houseSlug: house, houseName: data.house.name, ...c })
   return (
     <>
       <Status load={load} retry={() => setK((x) => x + 1)}>
         {(d) =>
-          WEBGL ? (
+          WEBGL || hasTour(d.document) ? (
             <HousePage
               data={d}
               backTo={`/v/${project}${SOURCE !== 'link' ? `?src=${SOURCE}` : ''}`}
@@ -109,7 +110,9 @@ const HouseRoute = () => {
               events={{
                 floor: ev('floor_select'), room: ev('room_select'), walk: ev('walk_mode'), item: ev('item_open'),
                 plan: () => ev('plan_open')(), pdf: () => ev('pdf_download')(), contact: (kind) => ev('contact_click')(kind),
+                tourOpen: () => ev('tour_open')(), tourScene: (id) => ev('tour_scene')(id), tourComplete: () => ev('tour_complete')(),
               }}
+              no3d={!WEBGL}
             />
           ) : (
             <No3D data={d} onLead={() => openLead()} onPdf={() => (ev('pdf_download')(), void import('../lib/pdf.ts').then((m) => m.exportPlanPdf(d)))} />

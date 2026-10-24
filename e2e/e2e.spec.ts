@@ -104,3 +104,76 @@ test('E2E-02: studio gửi duyệt → portal duyệt → studio phát hành →
   expect(pub.document.floors.some((f: { name: string }) => f.name === 'Tầng trệt E2E')).toBe(true)
   expect(errors).toEqual([])
 })
+
+test('E2E-03: tour ảnh thật — tải ảnh, điểm đi tiếp, duyệt, phát hành, Tiếp/Lùi, lead theo cảnh (item 02)', async ({ page, browser }) => {
+  const errors = watch(page)
+  await login(page, 'studio', ADMIN)
+  const projects = (await (await page.request.get('/api/v1/projects')).json()).items
+  const proj = projects.find((p: { slug: string }) => p.slug === 'sunrise-garden')
+  const slug = `tour-e2e-${Date.now().toString(36).slice(-4)}`
+  const h = await (await page.request.post(`/api/v1/projects/${proj.id}/houses`, { headers: { 'X-Requested-With': 'fetch' }, data: { name: 'Nhà thật E2E', slug, houseType: 'townhouse', declaredArea: 60 } })).json()
+  await page.goto(`/studio/houses/${h.house.id}/edit`)
+  await page.click('button:has-text("Ảnh thật")')
+  // 3 ảnh tạo trong trình duyệt, chọn ngược thứ tự
+  const shots = await page.evaluate(async () => {
+    const mk = async (color: string) => {
+      const c = document.createElement('canvas')
+      c.width = 1800
+      c.height = 1200
+      const g = c.getContext('2d')!
+      g.fillStyle = color
+      g.fillRect(0, 0, 1800, 1200)
+      return Array.from(new Uint8Array(await (await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/jpeg', 0.8))).arrayBuffer()))
+    }
+    return [await mk('#a86'), await mk('#6a8'), await mk('#68a')]
+  })
+  await page.setInputFiles('.tour-drop input[type=file]', [
+    { name: '03-bep.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(shots[2]) },
+    { name: '02-phong-khach.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(shots[1]) },
+    { name: '01-mat-tien.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(shots[0]) },
+  ])
+  await expect(page.locator('.tour-thumb')).toHaveCount(3, { timeout: 30_000 })
+  expect(await page.locator('.tour-thumb').evaluateAll((els) => els.map((e) => e.getAttribute('title')))).toEqual(['Mặt tiền', 'Phòng khách', 'Bếp'])
+  for (const i of [0, 1]) {
+    await page.locator('.tour-thumb').nth(i).click()
+    const box = (await page.locator('.tour-pick-img').boundingBox())!
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  }
+  await page.click('button:has-text("Dùng ảnh cảnh 1 làm ảnh đại diện")')
+  await expect(page.locator('.ed-checks')).toContainText(/Đủ điều kiện|Không còn lỗi chặn/, { timeout: 10_000 })
+
+  await page.goto(`/studio/houses/${h.house.id}/versions`)
+  await page.click('button:has-text("Gửi khách duyệt")')
+  await expect(page.locator('.ver').first()).toContainText('Chờ khách duyệt')
+  const portal = await (await browser.newContext()).newPage()
+  await login(portal, 'portal', APPROVER)
+  await portal.click(`a[href="/portal/review/${h.version.id}"]`)
+  await expect(portal.locator('.tour-img').first()).toBeVisible()
+  await portal.click('button:has-text("Duyệt phiên bản này")')
+  await portal.click('button:has-text("Xác nhận duyệt")')
+  await page.reload()
+  await page.click('.ver-head button:has-text("Phát hành")')
+  await page.click('.am-foot button:has-text("Phát hành")')
+  await expect(page.locator('.ver').first()).toContainText('Đã phát hành')
+
+  const viewer = await (await browser.newContext()).newPage()
+  const vErrors = watch(viewer)
+  await viewer.goto(`/v/sunrise-garden/${slug}`)
+  await expect(viewer.locator('.tour-step')).toHaveText('Cảnh 1 / 3')
+  await viewer.click('.tour-nav.next')
+  await expect(viewer.locator('.tour-step')).toHaveText('Cảnh 2 / 3')
+  await viewer.keyboard.press('ArrowRight')
+  await expect(viewer.locator('.tour-step')).toHaveText('Cảnh 3 / 3')
+  await viewer.keyboard.press('ArrowLeft')
+  await expect(viewer.locator('.tour-step')).toHaveText('Cảnh 2 / 3')
+  await viewer.click('button:has-text("Liên hệ tư vấn")')
+  await viewer.click('button:has-text("Để lại SĐT")')
+  await viewer.fill('.lead-form input[inputmode=tel]', '0944 555 666')
+  await viewer.check('.lead-form .consent input')
+  await viewer.waitForTimeout(3000)
+  await viewer.click('.lead-form button.primary')
+  await expect(viewer.locator('.lead-done')).toBeVisible()
+  await portal.goto('/portal/leads')
+  await expect(portal.locator('.tbl.leads tr', { hasText: '0944555666' })).toContainText('Ảnh thật · Phòng khách')
+  expect([...errors, ...vErrors]).toEqual([])
+})

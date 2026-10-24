@@ -91,3 +91,37 @@ describe('đi bộ trong nhà — không kẹt khi tâm phòng trùng bàn', asy
     expect(stepTowards([2.5, 2], [2.5, 2.1], bl)).toEqual([2.5, 2.1])
   })
 })
+
+describe('tour ảnh thật — sắp thứ tự & tên cảnh (AC-T1)', async () => {
+  const { orderPhotos, sceneTitle, leadingNumber } = await import('../src/tour/order.ts')
+  it('xếp theo số đầu tên tệp, chọn lộn xộn vẫn đúng', () => {
+    const names = ['10-ban-cong.jpg', '02-cong.jpg', '01-mat-tien.jpg', '03-cua-chinh.jpg']
+    const { items, by } = orderPhotos(names.map((name, index) => ({ name, index })))
+    expect(items.map((x) => x.name)).toEqual(['01-mat-tien.jpg', '02-cong.jpg', '03-cua-chinh.jpg', '10-ban-cong.jpg'])
+    expect(by).toBe('name')
+    expect(leadingNumber('IMG_1234.jpg')).toBeNull()
+  })
+  it('không có số → theo giờ chụp; thiếu giờ → theo thứ tự chọn', () => {
+    const a = orderPhotos([{ name: 'IMG_9.jpg', index: 0, takenAt: '2026-10-20T10:05:00' }, { name: 'IMG_1.jpg', index: 1, takenAt: '2026-10-20T10:01:00' }])
+    expect(a.items.map((x) => x.name)).toEqual(['IMG_1.jpg', 'IMG_9.jpg'])
+    expect(a.by).toBe('time')
+    const b = orderPhotos([{ name: 'b.jpg', index: 0 }, { name: 'a.jpg', index: 1, takenAt: '2026-01-01T00:00:00' }])
+    expect(b.items.map((x) => x.name)).toEqual(['b.jpg', 'a.jpg'])
+    expect(b.by).toBe('selection')
+  })
+  it('tên cảnh có dấu từ tên tệp không dấu', () => {
+    expect(sceneTitle('04-phong-khach.jpg', 4)).toBe('Phòng khách')
+    expect(sceneTitle('12_san_thuong.JPG', 12)).toBe('Sân thượng')
+    expect(sceneTitle('07-sanh-tang-2.jpg', 7)).toBe('Sảnh tầng 2')
+    expect(sceneTitle('08-Phòng ngủ master.jpg', 8)).toBe('Phòng ngủ master')
+    expect(sceneTitle('05.jpg', 5)).toBe('Cảnh 5')
+  })
+})
+
+describe('tên cảnh — từ điển phòng', async () => {
+  const { sceneTitle } = await import('../src/tour/order.ts')
+  it('phòng sinh hoạt, hồ bơi', () => {
+    expect(sceneTitle('08-phong-sinh-hoat.jpg', 8)).toBe('Phòng sinh hoạt')
+    expect(sceneTitle('20-ho-boi.jpg', 20)).toBe('Hồ bơi')
+  })
+})

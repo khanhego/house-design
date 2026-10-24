@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useProgress } from '@react-three/drei'
-import { assignItemsToRooms, formatArea, roomArea, sortedFloors } from '@hd/core'
+import { assignItemsToRooms, floorHasContent, formatArea, hasTour, roomArea, sortedFloors } from '@hd/core'
 import type { Floor, PublicHousePayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
 import type { CameraApi, StairOption, ViewMode, WallMode } from '../scene/HouseScene.tsx'
@@ -12,6 +12,8 @@ import type { ItemView } from './ItemPanel.tsx'
 import { MiniPlan } from './MiniPlan.tsx'
 import { isInAppBrowser } from './data.ts'
 import { PlanTab } from './PlanTab.tsx'
+
+import { TourStage } from '../tour/TourStage.tsx'
 
 const HouseScene = lazy(() => import('../scene/HouseScene.tsx').then((m) => ({ default: m.HouseScene })))
 
@@ -24,12 +26,18 @@ export interface ViewerEvents {
   pdf?: () => void
   contact?: (k: 'call' | 'zalo' | 'form') => void
   ready?: () => void
+  /** tour ảnh thật (item 02) */
+  tourOpen?: () => void
+  tourScene?: (sceneId: string) => void
+  tourComplete?: () => void
 }
 
 interface Props {
   data: PublicHousePayload
-  /** mở form lead kèm tầng/phòng đang xem (FR-10.02) */
-  onLead?: (ctx: { floorId?: string; roomId?: string }) => void
+  /** mở form lead kèm tầng/phòng hoặc cảnh tour đang xem (FR-10.02, FR-12.11) */
+  onLead?: (ctx: { floorId?: string; roomId?: string; sceneId?: string }) => void
+  /** thiết bị không chạy 3D: chỉ tour (+ mặt bằng) */
+  no3d?: boolean
   events?: ViewerEvents
   /** dải "BẢN XEM TRƯỚC" (C3/A3) */
   previewBanner?: React.ReactNode
@@ -46,24 +54,34 @@ const WALL_MODES: { id: WallMode; label: string }[] = [
 const readQuery = () => new URLSearchParams(location.search)
 
 /** V2 — xem mẫu nhà (FR-06.*, SRS §10.4). */
-export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner, backTo, toast }: Props) => {
+export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner, backTo, toast, no3d }: Props) => {
   useBrand(data.branding)
   const doc = data.document
-  const floors = useMemo(() => sortedFloors(doc), [doc])
+  // chỉ tầng có nội dung dựng mới xem 3D; mẫu nhà chỉ có tour ảnh thật thì không có tầng (item 02)
+  const floors = useMemo(() => sortedFloors(doc).filter(floorHasContent), [doc])
+  const has3d = floors.length > 0 && !no3d
+  const tourOk = hasTour(doc)
   const single = floors.length === 1
   const hasExterior = data.house.houseType !== 'apartment'
 
   const q = readQuery()
   const initialFloor = floors.find((f) => f.id === q.get('floor'))?.id ?? (single ? floors[0].id : 'all')
+  const [sceneId, setSceneId] = useState<string | null>(null)
   const [floorId, setFloorId] = useState<string>(initialFloor)
   const [roomId, setRoomId] = useState<string | null>(q.get('room'))
-  const onLead = onLeadCtx ? () => onLeadCtx({ floorId: floorId !== 'all' ? floorId : undefined, roomId: roomId ?? undefined }) : undefined
+  const onLead = onLeadCtx
+    ? () => onLeadCtx(tab === 'tour' && sceneId ? { sceneId } : { floorId: floorId !== 'all' ? floorId : undefined, roomId: roomId ?? undefined })
+    : undefined
   const [mode, setMode] = useState<ViewMode>('orbit')
   const cameraApi = useRef<CameraApi | null>(null)
   const [stairOpt, setStairOpt] = useState<StairOption>(null)
   const [wallMode, setWallMode] = useState<WallMode>('auto')
   const [night, setNight] = useState(false)
-  const [tab, setTab] = useState<'3d' | 'plan'>(q.get('tab') === 'plan' ? 'plan' : '3d')
+  const [tab, setTab] = useState<'3d' | 'plan' | 'tour'>(() => {
+    const t = q.get('tab')
+    if (tourOk && (t === 'tour' || !has3d)) return 'tour'
+    return t === 'plan' && floors.length ? 'plan' : has3d ? '3d' : 'plan'
+  })
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [hoverItemId, setHoverItemId] = useState<string | null>(null)
   const [variants, setVariants] = useState<Record<string, string>>({})
@@ -82,7 +100,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
     const p = new URLSearchParams(location.search)
     floorId === 'all' || (single && floorId === floors[0].id) ? p.delete('floor') : p.set('floor', floorId)
     roomId ? p.set('room', roomId) : p.delete('room')
-    tab === 'plan' ? p.set('tab', 'plan') : p.delete('tab')
+    tab === 'plan' || tab === 'tour' ? p.set('tab', tab) : p.delete('tab')
     const s = p.toString()
     history.replaceState(null, '', location.pathname + (s ? `?${s}` : ''))
   }, [floorId, roomId, tab, single, floors])
@@ -219,8 +237,9 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
           </span>
         </div>
         <div className="seg" role="tablist">
-          <button role="tab" aria-selected={tab === '3d'} className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D</button>
-          <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'on' : ''} onClick={() => (setTab('plan'), events.plan?.())}>Mặt bằng</button>
+          {has3d && <button role="tab" aria-selected={tab === '3d'} className={tab === '3d' ? 'on' : ''} onClick={() => setTab('3d')}>3D</button>}
+          {tourOk && <button role="tab" aria-selected={tab === 'tour'} className={tab === 'tour' ? 'on' : ''} onClick={() => setTab('tour')}>Ảnh thật</button>}
+          {floors.length > 0 && <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'on' : ''} onClick={() => (setTab('plan'), events.plan?.())}>Mặt bằng</button>}
         </div>
         <div className="hide-sm">
           <ContactMenu project={data.project} onLead={onLead} onClick={events.contact} />
@@ -228,7 +247,22 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
       </header>
 
       <div className="v-stage">
-        {tab === '3d' ? (
+        {tab === 'tour' ? (
+          <TourStage
+            doc={doc}
+            files={data.resolved.files}
+            floors={floors}
+            has3d={has3d}
+            onLead={onLead}
+            events={events}
+            onScene={setSceneId}
+            onAction={(sc, action) => {
+              if (!sc.floorId) return
+              if (action === '3d' && sc.roomId) (setTab('3d'), chooseRoom(sc.floorId, sc.roomId))
+              else (setFloorId(sc.floorId), setTab('plan'))
+            }}
+          />
+        ) : tab === '3d' ? (
           <>
             <div className="v-canvas">
               <Suspense fallback={null}>
