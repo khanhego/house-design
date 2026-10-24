@@ -67,6 +67,7 @@
 | CR-1 | SRS v0.3 | Thêm màn V5 chính sách dữ liệu | R-25 | Agent | 2026-10-24 |
 | DEC-35 | Plan | Agent duyệt Plan (5 lát, đường găng §3) | DEC-16 | Agent | 2026-10-24 |
 | DEC-36 | Chạy TS | Node 25 type stripping, import `.ts`, không build API | Ít công cụ; TS7 hỗ trợ | Agent | 2026-10-24 |
+| DEC-37 | Spike GLB (ĐK của DEC-34) | ĐẠT: 2.000 mesh/40 vật liệu/30 item_ (15 lồng 3 cấp)/60 wall_ → 1,27 MB→52 KB, giữ đủ tên, phần không tên 40 draw call, tổng 220 (60 wall_ tốn draw call riêng → khuyến nghị gộp tường theo phòng). Spike phát hiện lỗi `join(keepNamed)` giữ mesh có tên → đã sửa. BE-R4 (file thật) vẫn mở | Mở khoá F12/F13 | Agent | 2026-10-24 |
 | DEC-2 | Quy trình chuẩn không có bước market research | Thêm `00a-requirement-analysis.md`, `00b-market-research.md` trong thư mục item, làm input cho SRS | User yêu cầu thứ tự: phân tích → research → SRS | khanhtt | 2026-10-24 |
 
 ## Lịch sử
@@ -86,3 +87,4 @@
 | 2026-10-24 | PM/QA | `03-plan.md` (Plan ✅), `04-test-cases.md` (CP7) |
 | 2026-10-24 | Dev | Lát 1 xong (T-1…T-10): core, API khung, công khai, seed, viewer 3D, mặt bằng, PDF; 4 commit cục bộ |
 | 2026-10-24 | Dev | Tài liệu nghiệp vụ lát 1 |
+| 2026-10-24 | Dev | T-19: spike GLB đạt (DEC-37), pipeline tối ưu trong worker thread, API-37/38 |
