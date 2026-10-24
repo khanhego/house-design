@@ -34,7 +34,7 @@ export interface RectFloorSpec {
   rooms: RectRoom[]
   openings?: LineOpening[]
   areas?: { name: string; kind: OutdoorArea['kind']; rect: [number, number, number, number] }[]
-  stairs?: { rect: [number, number, number, number]; upDirection: number; toFloorId?: string }[]
+  stairs?: { rect: [number, number, number, number]; upDirection: number; toFloorId?: string; shape?: Stair['shape'] }[]
   exteriorThickness?: number
   interiorThickness?: number
   /** cặp phòng thông nhau (không kẻ tường ở cạnh chung) — không gian mở: khách–bếp, sảnh–cầu thang… */
@@ -161,6 +161,7 @@ export const floorFromRects = (spec: RectFloorSpec): Floor => {
     polygon: rectPoly(s.rect),
     upDirection: s.upDirection,
     toFloorId: s.toFloorId,
+    ...(s.shape ? { shape: s.shape } : {}),
   }))
 
   return {

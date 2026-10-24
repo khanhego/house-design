@@ -1,5 +1,5 @@
 import { BODY_RADIUS as BODY_MM, buildNavGrid, clearanceAt, findPath, furnitureObstacles, standable, stairEnd as stairEndMm, wallObstacles, wallSegments } from '@hd/core'
-import type { Floor, NavGrid, NavLibrary, Obstacle, Point } from '@hd/core'
+import type { Floor, NavGrid, NavLibrary, Obstacle, Point, Stair } from '@hd/core'
 
 /*
  * Đi bộ trong nhà (chế độ "Đứng trong phòng"), đơn vị mét trên mặt bằng (x, z).
@@ -125,7 +125,7 @@ export const nearestFreeIn = (p: P2, blockers: Blocker[], areas: P2[][]): P2 => 
 }
 
 /** Điểm đứng ở đầu trên (`top`) hoặc chân (`bottom`) cầu thang, cách mép 0,6 m (m). */
-export const stairEnd = (polygon: [number, number][], upDirection: number, end: 'top' | 'bottom'): P2 => m(stairEndMm(polygon, upDirection, end))
+export const stairEnd = (s: Stair, end: 'top' | 'bottom'): P2 => m(stairEndMm(s, end))
 
 /** Lưới tìm đường cho một tầng (tính một lần khi vào tầng). */
 export const navGridOf = (floor: Floor, blockers: Blocker[]): NavGrid => buildNavGrid(floor, blockers, 50)

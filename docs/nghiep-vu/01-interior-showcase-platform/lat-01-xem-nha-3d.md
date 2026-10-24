@@ -165,6 +165,23 @@ Một module duy nhất `packages/core/src/nav.ts` quyết định "người đi
 
 Kiểm hồi quy khi đổi logic đi bộ: `?debug3d=1` có `window.__hdWalkTo(x, z)` để kịch bản tự động cho người mẫu đi qua mọi phòng, mọi cửa, mọi cầu thang.
 
+## 7c. Đi lại kiểu game: bộ vật lý + navmesh (DEC-53, 2026-10-25)
+
+Người mẫu ở chế độ "Đứng trong phòng" giờ đi như nhân vật trong game, không còn trượt trên mặt bằng 2D:
+
+| Người xem làm | Hệ thống làm | Code |
+|---|---|---|
+| Giữ W / ↑ đi tới, A / D xoay, Shift chạy | Bộ điều khiển nhân vật (Rapier) đẩy thân hình viên thuốc 1,7 m: trượt dọc tường, lướt qua khung cửa (có hỗ trợ kéo vào giữa cửa), có trọng lực | `apps/web/src/scene/physics/walker.ts` |
+| Đi tới cầu thang và cứ giữ W | Leo từng vế (dốc liền), qua chiếu nghỉ, lên tới sàn tầng trên thì tự chọn tầng đó | `walkGeometry.ts` (dốc + chiếu nghỉ), `HouseScene.tsx` (chọn tầng theo độ cao) |
+| Bấm vào sàn bất kỳ (kể cả phòng khác) | Tìm đường trên navmesh (Recast/Detour) qua cửa, né đồ, lên xuống cầu thang | `walker.pathTo` |
+| Kéo xoay camera trong phòng hẹp | Camera thu ngắn trước tường (cần lò xo), không lọt ra sau tường | `walker.springArm` |
+
+**Vì sao không còn đi ra ngoài khoảng không:** va chạm lấy từ sàn thật của từng tầng (phòng, ban công, sân thượng, đường bao) — chỗ không có sàn thì không đứng được; mép sàn tầng trên, miệng lỗ thang (trừ chỗ bước ra khỏi thang), hồ bơi, ranh khu đất có lan can vô hình.
+
+**Thang chữ U** (`Stair.shape = 'u'`): vế 1 lên ở nửa phải, chiếu nghỉ cuối thang, vế 2 quay lại ở nửa trái; vào và ra cùng một phía nên các tầng xếp chồng thang cùng một chỗ được — kiểu thang phổ biến của nhà phố. Thang thẳng xếp chồng cùng một chỗ là bố cục sai (vế dưới đụng đầu vào vế trên, không có lối sang vế kế) — trình dựng có lựa chọn "Kiểu thang" trong bảng thuộc tính cầu thang.
+
+**Kiểm hồi quy:** `apps/web/test/walk-physics.test.ts` mô phỏng (không cần trình duyệt) trên 4 nhà mẫu: đi qua mọi phòng, đi phím qua mọi cửa (chéo lệch tâm), leo mọi cầu thang lên + xuống, tìm đường lên từng phòng tầng trên, đi lung tung 60 giây mỗi tầng không rời sàn, camera không có vật cản giữa người và camera. Trên trình duyệt: `?debug3d=1` có `window.__hdWalker` và `window.__hdWalkTo(x, z, y)`.
+
 ## 8. Giới hạn hiện tại và giả định
 - Dữ liệu là mẫu; nội thất xếp tự động nên vài chỗ chưa hợp lý (ví dụ cửa garage 3,8 m vẽ thành cửa cánh, vì schema chưa có cửa cuốn).
 - Mô hình GLB thật, quy ước node `item_*`/`wall_*` đã có code nhưng chưa được kiểm với file thật (rủi ro BE-R4, kiểm ở lát 2).

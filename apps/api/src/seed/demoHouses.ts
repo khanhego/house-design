@@ -94,8 +94,9 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
   ])
 
   // 2. Nhà phố 5 × 18 m — 4 tầng: T1, lửng, T2, T3 + sân thượng
+  // thang chữ U (có chiếu nghỉ) đặt chồng cùng một chỗ ở mọi tầng, vào / ra ở phía mặt tiền của khối thang
   const W = 5000
-  const stair = (toFloorId?: string) => ({ rect: [3800, 7000, 1100, 3600] as [number, number, number, number], upDirection: 90, toFloorId })
+  const stair = (toFloorId?: string) => ({ rect: [2800, 7000, 2200, 3800] as [number, number, number, number], upDirection: 90, shape: 'u' as const, toFloorId })
   const tp1 = floorFromRects({
     name: 'Tầng 1', order: 1, elevation: 0, height: 3600,
     rooms: [
@@ -108,40 +109,39 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     openings: [
       { kind: 'door', axis: 'x', at: 0, from: 600, to: 4400, height: 2600 },
       { kind: 'door', axis: 'x', at: 5000, from: 700, to: 2100, swing: 'right' },
-      { kind: 'door', axis: 'x', at: 11000, from: 1000, to: 2400 },
+      { kind: 'door', axis: 'x', at: 11000, from: 700, to: 2300 },
       { kind: 'door', axis: 'x', at: 16000, from: 500, to: 1200 },
       { kind: 'door', axis: 'x', at: 16000, from: 3000, to: 3800 },
       { kind: 'window', axis: 'x', at: 18000, from: 2800, to: 4400 },
     ],
-    // thang lên lửng chạy về phía mặt tiền: chân thang ở phòng khách, đầu thang ra không gian lửng
-    stairs: [{ rect: [2600, 6000, 1100, 3600], upDirection: 270 }],
+    stairs: [stair()],
   })
   const tpL = floorFromRects({
     name: 'Tầng lửng', order: 2, elevation: 3600, height: 2700,
     rooms: [
       { name: 'Phòng sinh hoạt', function: 'hall', rect: [0, 0, W, 5000] },
-      { name: 'Phòng làm việc', function: 'study', rect: [0, 5000, W, 3000] },
+      { name: 'Phòng làm việc', function: 'study', rect: [0, 5000, W, 6000] },
     ],
     openings: [{ kind: 'window', axis: 'x', at: 0, from: 800, to: 4200, sill: 600, height: 1600 }],
-    // lửng là một không gian mở; thang lên tầng 2 chân ở sinh hoạt, đầu ra hành lang tầng 2
+    // lửng phủ phía trên phòng khách, là một không gian mở; bếp phía sau thông tầng
     open: [['Phòng sinh hoạt', 'Phòng làm việc']],
-    stairs: [{ rect: [3800, 5100, 1100, 2800], upDirection: 90 }],
+    stairs: [stair()],
   })
   const tp2 = floorFromRects({
     name: 'Tầng 2', order: 3, elevation: 6300, height: 3300,
     rooms: [
       { name: 'Phòng ngủ 1', function: 'bedroom', rect: [0, 0, W, 4800] },
-      { name: 'WC 1', function: 'bathroom', rect: [0, 4800, 2400, 2200] },
-      { name: 'Hành lang', function: 'hall', rect: [2400, 4800, 2600, 6000] },
+      { name: 'WC 1', function: 'bathroom', rect: [0, 4800, 1800, 2200] },
+      { name: 'Hành lang', function: 'hall', rect: [1800, 4800, 3200, 6000] },
       { name: 'Phòng ngủ 2', function: 'bedroom', rect: [0, 10800, W, 4400] },
-      { name: 'WC 2', function: 'bathroom', rect: [0, 7000, 2400, 3800] },
+      { name: 'WC 2', function: 'bathroom', rect: [0, 7000, 1800, 3800] },
     ],
     openings: [
       { kind: 'window', axis: 'x', at: 0, from: 900, to: 4100 },
       { kind: 'door', axis: 'x', at: 4800, from: 2900, to: 3700 },
-      { kind: 'door', axis: 'y', at: 2400, from: 5200, to: 5900 },
-      { kind: 'door', axis: 'y', at: 2400, from: 7600, to: 8300 },
-      { kind: 'door', axis: 'x', at: 10800, from: 2900, to: 3700, swing: 'right' },
+      { kind: 'door', axis: 'y', at: 1800, from: 5200, to: 5900 },
+      { kind: 'door', axis: 'y', at: 1800, from: 7600, to: 8300 },
+      { kind: 'door', axis: 'x', at: 10800, from: 1900, to: 2700, swing: 'right' },
       { kind: 'window', axis: 'x', at: 15200, from: 1200, to: 3800 },
     ],
     stairs: [stair()],
@@ -155,11 +155,11 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     ],
     openings: [
       { kind: 'window', axis: 'x', at: 0, from: 900, to: 4100 },
-      { kind: 'door', axis: 'x', at: 4800, from: 2000, to: 2900 },
-      { kind: 'door', axis: 'x', at: 10800, from: 1800, to: 3200 },
+      { kind: 'door', axis: 'x', at: 4800, from: 1800, to: 2700 },
+      { kind: 'door', axis: 'x', at: 10800, from: 1000, to: 2400 },
+      { kind: 'door', axis: 'x', at: 14400, from: 1500, to: 2500 },
     ],
     areas: [{ name: 'Sân thượng', kind: 'terrace', rect: [0, 14400, W, 3600] }],
-    stairs: [stair()],
   })
   tp1.stairs[0].toFloorId = tpL.id
   tpL.stairs[0].toFloorId = tp2.id
@@ -167,36 +167,36 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
   const town = doc([tp1, tpL, tp2, tp3])
 
   // 3. Biệt thự 3 tầng — sân vườn, hồ bơi
-  // chân thang quay ra không gian mở (phía bếp ăn), đầu thang ra hành lang tầng trên
-  const vs = (id?: string) => ({ rect: [6200, 4200, 1300, 3800] as [number, number, number, number], upDirection: 270, toFloorId: id })
+  // khối thang giữa nhà rộng 3 m: thang chữ U 2 m xếp chồng ở mọi tầng + lối đi 1 m bên cạnh thang
+  const vs = (id?: string) => ({ rect: [6000, 4200, 2000, 3800] as [number, number, number, number], upDirection: 270, shape: 'u' as const, toFloorId: id })
   const v1 = floorFromRects({
     name: 'Tầng 1', order: 1, elevation: 0, height: 3800,
     rooms: [
       { name: 'Sảnh', function: 'hall', rect: [0, 0, 6000, 4000] },
       { name: 'Phòng khách', function: 'living', rect: [0, 4000, 6000, 6000] },
-      { name: 'Bếp & ăn', function: 'kitchen', rect: [6000, 8000, 6000, 5000] },
-      { name: 'Cầu thang', function: 'stair', rect: [6000, 4000, 2000, 4000] },
-      { name: 'Phòng ngủ khách', function: 'bedroom', rect: [8000, 0, 4000, 5000] },
-      { name: 'WC khách', function: 'wc', rect: [8000, 5000, 4000, 3000] },
-      { name: 'Kho', function: 'storage', rect: [6000, 0, 2000, 4000] },
+      { name: 'Bếp & ăn', function: 'kitchen', rect: [6000, 8000, 7000, 5000] },
+      { name: 'Cầu thang', function: 'stair', rect: [6000, 4000, 3000, 4000] },
+      { name: 'Phòng ngủ khách', function: 'bedroom', rect: [9000, 0, 4000, 5000] },
+      { name: 'WC khách', function: 'wc', rect: [9000, 5000, 4000, 3000] },
+      { name: 'Hành lang', function: 'hall', rect: [6000, 0, 3000, 4000] },
       { name: 'Phòng giặt', function: 'laundry', rect: [0, 10000, 6000, 3000] },
     ],
     openings: [
       { kind: 'door', axis: 'x', at: 0, from: 2000, to: 4000, height: 2700, swing: 'right' },
       { kind: 'window', axis: 'y', at: 0, from: 4800, to: 9200, sill: 200, height: 2400 },
-      // phòng ngủ khách, WC khách mở ra sảnh cầu thang; kho mở ra sảnh
-      { kind: 'door', axis: 'y', at: 8000, from: 4100, to: 4900, swing: 'right' },
-      { kind: 'door', axis: 'y', at: 8000, from: 6200, to: 7000 },
-      { kind: 'door', axis: 'y', at: 6000, from: 1200, to: 2000 },
-      { kind: 'window', axis: 'x', at: 13000, from: 6800, to: 9800, sill: 200, height: 2400 },
-      { kind: 'door', axis: 'x', at: 13000, from: 10300, to: 11300 },
+      { kind: 'window', axis: 'x', at: 0, from: 10000, to: 12000 },
+      // phòng ngủ khách mở ra hành lang, WC khách mở ra bếp ăn
+      { kind: 'door', axis: 'y', at: 9000, from: 1500, to: 2400, swing: 'right' },
+      { kind: 'door', axis: 'x', at: 8000, from: 9800, to: 10600 },
+      { kind: 'window', axis: 'x', at: 13000, from: 7800, to: 10800, sill: 200, height: 2400 },
+      { kind: 'door', axis: 'x', at: 13000, from: 11300, to: 12300 },
       { kind: 'door', axis: 'x', at: 10000, from: 2000, to: 2900 },
     ],
-    // sảnh – khách – cầu thang – bếp ăn là một không gian mở
-    open: [['Sảnh', 'Phòng khách'], ['Phòng khách', 'Cầu thang'], ['Cầu thang', 'Bếp & ăn'], ['Phòng khách', 'Bếp & ăn']],
+    // sảnh – hành lang, sảnh – khách – cầu thang – bếp ăn là không gian mở
+    open: [['Sảnh', 'Phòng khách'], ['Sảnh', 'Hành lang'], ['Phòng khách', 'Cầu thang'], ['Cầu thang', 'Bếp & ăn'], ['Phòng khách', 'Bếp & ăn']],
     areas: [
-      { name: 'Sân vườn trước', kind: 'garden', rect: [0, -5000, 12000, 5000] },
-      { name: 'Sân sau', kind: 'yard', rect: [0, 13000, 12000, 6000] },
+      { name: 'Sân vườn trước', kind: 'garden', rect: [0, -5000, 13000, 5000] },
+      { name: 'Sân sau', kind: 'yard', rect: [0, 13000, 13000, 6000] },
       { name: 'Hồ bơi', kind: 'pool', rect: [1500, 14200, 8000, 3800] },
     ],
     stairs: [vs()],
@@ -207,22 +207,22 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
       { name: 'Phòng ngủ master', function: 'bedroom', rect: [0, 0, 6000, 5500] },
       { name: 'WC master', function: 'bathroom', rect: [0, 5500, 3000, 3000] },
       { name: 'Phòng thay đồ', function: 'storage', rect: [3000, 5500, 3000, 3000] },
-      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 4000, 2000, 4500] },
-      { name: 'Phòng ngủ 2', function: 'bedroom', rect: [8000, 0, 4000, 4500] },
-      { name: 'WC 2', function: 'bathroom', rect: [8000, 4500, 4000, 2500] },
-      { name: 'Phòng ngủ 3', function: 'bedroom', rect: [8000, 7000, 4000, 4500] },
-      { name: 'Phòng sinh hoạt', function: 'living', rect: [0, 8500, 8000, 3000] },
-      { name: 'Hành lang', function: 'hall', rect: [6000, 0, 2000, 4000] },
+      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 4000, 3000, 4500] },
+      { name: 'Phòng ngủ 2', function: 'bedroom', rect: [9000, 0, 4000, 4500] },
+      { name: 'WC 2', function: 'bathroom', rect: [9000, 4500, 4000, 2500] },
+      { name: 'Phòng ngủ 3', function: 'bedroom', rect: [9000, 7000, 4000, 4500] },
+      { name: 'Phòng sinh hoạt', function: 'living', rect: [0, 8500, 9000, 3000] },
+      { name: 'Hành lang', function: 'hall', rect: [6000, 0, 3000, 4000] },
     ],
     openings: [
       { kind: 'window', axis: 'x', at: 0, from: 1000, to: 5000, sill: 200, height: 2400 },
-      { kind: 'door', axis: 'y', at: 6000, from: 4400, to: 5300, swing: 'right' },
+      { kind: 'door', axis: 'y', at: 6000, from: 1000, to: 1900, swing: 'right' },
       { kind: 'door', axis: 'x', at: 5500, from: 1000, to: 1800 },
       { kind: 'door', axis: 'x', at: 5500, from: 4100, to: 4900 },
-      { kind: 'door', axis: 'y', at: 8000, from: 2800, to: 3700 },
-      { kind: 'door', axis: 'x', at: 4500, from: 9000, to: 9800 },
-      { kind: 'door', axis: 'y', at: 8000, from: 7600, to: 8500, swing: 'right' },
-      { kind: 'window', axis: 'x', at: 0, from: 8800, to: 11200 },
+      { kind: 'door', axis: 'y', at: 9000, from: 2800, to: 3700 },
+      { kind: 'door', axis: 'x', at: 4500, from: 10000, to: 10800 },
+      { kind: 'door', axis: 'y', at: 9000, from: 8600, to: 9500, swing: 'right' },
+      { kind: 'window', axis: 'x', at: 0, from: 9800, to: 12200 },
     ],
     open: [['Sảnh tầng', 'Hành lang'], ['Sảnh tầng', 'Phòng sinh hoạt']],
     stairs: [vs()],
@@ -232,17 +232,16 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     rooms: [
       { name: 'Phòng thờ', function: 'worship', rect: [0, 0, 6000, 4000] },
       { name: 'Phòng làm việc', function: 'study', rect: [0, 4000, 6000, 4000] },
-      // sảnh tầng chạy hết chiều sâu để đầu thang từ tầng 2 lên nằm trong nhà
-      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 0, 2000, 8000] },
+      // sảnh tầng chạy hết chiều sâu khối thang: đầu thang từ tầng 2 lên ra đây
+      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 0, 3000, 9500] },
     ],
     openings: [
       { kind: 'door', axis: 'x', at: 4000, from: 2400, to: 3600 },
-      { kind: 'door', axis: 'y', at: 6000, from: 5000, to: 5900 },
-      { kind: 'door', axis: 'y', at: 8000, from: 4600, to: 5600, swing: 'right' },
+      { kind: 'door', axis: 'y', at: 6000, from: 1000, to: 2000 },
+      { kind: 'door', axis: 'y', at: 9000, from: 1500, to: 2500, swing: 'right' },
       { kind: 'window', axis: 'x', at: 0, from: 1500, to: 4500 },
     ],
-    areas: [{ name: 'Sân thượng', kind: 'terrace', rect: [8000, 0, 4000, 11500] }],
-    stairs: [{ rect: [6200, 4200, 1300, 3600], upDirection: 270 }],
+    areas: [{ name: 'Sân thượng', kind: 'terrace', rect: [9000, 0, 4000, 11500] }],
   })
   v1.stairs[0].toFloorId = v2.id
   v2.stairs[0].toFloorId = v3.id

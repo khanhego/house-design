@@ -44,8 +44,11 @@ const keepClear = (doc: HouseDocument, f: Floor, depth: number): Box[] => {
     out.push(along ? { x0: b.minX - 1000, y0: b.minY - 100, x1: b.maxX + 1000, y1: b.maxY + 100 } : { x0: b.minX - 100, y0: b.minY - 1000, x1: b.maxX + 100, y1: b.maxY + 1000 })
   }
   for (const s of doc.floors.flatMap((x) => x.stairs.filter((st) => st.toFloorId === f.id))) {
-    const [x, y] = stairEnd(s.polygon, s.upDirection, 'top')
+    const [x, y] = stairEnd(s, 'top')
     out.push({ x0: x - 800, y0: y - 800, x1: x + 800, y1: y + 800 })
+    // lỗ cầu thang từ tầng dưới: không có sàn để đặt đồ
+    const b = bboxOf(s.polygon)
+    out.push({ x0: b.minX - 100, y0: b.minY - 100, x1: b.maxX + 100, y1: b.maxY + 100 })
   }
   return out
 }
@@ -232,21 +235,28 @@ export const furnishHouse = (doc: HouseDocument, lib: LibIds, sizes: Sizes, cate
   })
   const out: HouseDocument = { ...doc, floors }
   for (const f of out.floors) {
+    const rank = (it: PlacedItem) => {
+      const r = DROP_ORDER.indexOf(keyOf[(it.source as { libraryItemId: string }).libraryItemId] ?? '')
+      return r < 0 ? DROP_ORDER.length : r
+    }
+    const count = () => auditFloor(out, f, navLib).filter((i) => i.code !== 'ROOM_CRAMPED')
     for (let guard = 0; guard < 40; guard++) {
-      const issues = auditFloor(out, f, navLib).filter((i) => i.code !== 'ROOM_CRAMPED')
+      const issues = count()
       if (!issues.length) break
-      // đồ gần chỗ có vấn đề (hoặc trong phòng có vấn đề)
-      const near = (it: PlacedItem) =>
-        issues.some((i) => {
-          if (i.at) return Math.hypot(it.position[0] - i.at[0], it.position[1] - i.at[1]) < 1600
-          const r = f.rooms.find((x) => x.id === i.roomId)
-          return !!r && pointInPolygon(it.position, r.polygon)
-        })
-      const cand = f.items.filter((it) => 'libraryItemId' in it.source && near(it))
-      if (!cand.length) break // lỗi do tường / bố cục — không phải do đồ
-      const rank = (it: PlacedItem) => DROP_ORDER.indexOf(keyOf[(it.source as { libraryItemId: string }).libraryItemId] ?? '')
-      cand.sort((a, c) => rank(a) - rank(c))
-      f.items = f.items.filter((x) => x !== cand[0])
+      // thử bỏ từng món (đồ phụ trước, đồ gần chỗ có vấn đề trước): giữ lần bỏ đầu tiên làm giảm số lỗi
+      const near = (it: PlacedItem) => issues.some((i) => !!i.at && Math.hypot(it.position[0] - i.at[0], it.position[1] - i.at[1]) < 1600)
+      const cand = f.items.filter((it) => 'libraryItemId' in it.source).sort((a, c) => Number(near(c)) - Number(near(a)) || rank(a) - rank(c))
+      let done = false
+      for (const it of cand) {
+        const keep = f.items
+        f.items = keep.filter((x) => x !== it)
+        if (count().length < issues.length) {
+          done = true
+          break
+        }
+        f.items = keep
+      }
+      if (!done) break // lỗi do tường / bố cục — không phải do đồ
     }
   }
   return out

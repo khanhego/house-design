@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
-import { bboxOf, pointInPolygon, roomLabelPoint, sortedFloors, wallsOutline } from '@hd/core'
+import { bboxOf, pointInPolygon, roomLabelPoint, sortedFloors, stairObstacles, wallsOutline } from '@hd/core'
 import type { Floor, HouseDocument, ModelRef, Point, Snapshot } from '@hd/core'
 import { FloorGroup } from './FloorGroup.tsx'
 import type { WallMode } from './FloorGroup.tsx'
@@ -15,6 +15,8 @@ import type { AvatarState } from './Avatar.tsx'
 import { bestSpot, blockersOf, furnitureBlockers, navGridOf, nearestFreeIn, openHeading, pathTo, portalsOf, stairEnd, walkStep } from './walk.ts'
 import { stepTowards } from './walk.ts'
 import type { Blocker, P2, Portal } from './walk.ts'
+import { useWalker } from './physics/useWalker.ts'
+import type { V3, Walker } from './physics/walker.ts'
 
 export type ViewMode = 'orbit' | 'facade' | 'inside'
 export type { WallMode }
@@ -153,7 +155,7 @@ const isTyping = (e: KeyboardEvent) => {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
 }
 
-const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkGoal, avatar, blockers, portals, api, rig, suppressTeleport, onEnterRoom, onStair }: {
+const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkGoal, walkPath3, walker, avatar, blockers, portals, api, rig, suppressTeleport, onEnterRoom, onStair }: {
   doc: HouseDocument
   bounds: HouseBounds
   floor: Floor | null
@@ -163,6 +165,10 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   target: React.RefObject<THREE.Vector3>
   /** các điểm rẽ còn lại của đường đang đi (bấm sàn để đi tới) */
   walkGoal: React.RefObject<P2[] | null>
+  /** đường đi trên navmesh (bộ vật lý) */
+  walkPath3: React.RefObject<V3[] | null>
+  /** người mẫu vật lý (null khi chưa nạp xong → đi theo mặt bằng 2D) */
+  walker: Walker | null
   avatar: React.RefObject<AvatarState>
   blockers: Blocker[]
   portals: Portal[]
@@ -239,6 +245,8 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
         const [x, z] = nearestFreeIn(arrive.current, blockers, areas)
         arrive.current = null
         a.pos.set(x, M(f.elevation), z)
+        walker?.teleport({ x, y: M(f.elevation), z })
+        walkPath3.current = null
         a.heading = openHeading([x, z], blockers)
         a.speed = 0
         walkGoal.current = null
@@ -251,6 +259,8 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       const [x, z] = bestSpot(r.polygon.map(([px, py]) => [M(px), M(py)] as P2), [M(lx), M(ly)], blockers)
       // nhìn về hướng thoáng nhất để vừa vào là thấy phòng và đi được ngay
       a.pos.set(x, M(f.elevation), z)
+      walker?.teleport({ x, y: M(f.elevation), z })
+      walkPath3.current = null
       a.heading = openHeading([x, z], blockers)
       a.speed = 0
       walkGoal.current = null
@@ -309,6 +319,15 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
     void c.setLookAt(M(bounds.cx) + s * 0.6 * k, M(bounds.top) * 0.4 + s * 0.8 * k, M(bounds.cy) - s * 1.0 * k, M(bounds.cx), M(bounds.top) * 0.3, M(bounds.cy), smooth)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, bounds, floor, roomId, mode, k, resetTick, blockers])
+
+  // người mẫu vật lý vừa nạp xong: đặt vào đúng chỗ đang đứng; camera tự tránh tường bằng cần lò xo (không dùng collider của camera-controls)
+  useEffect(() => {
+    const c = ref.current
+    if (!walker || mode !== 'inside') return
+    const a = avatar.current
+    walker.teleport({ x: a.pos.x, y: a.pos.y, z: a.pos.z })
+    if (c) c.colliderMeshes = []
+  }, [walker, mode, avatar])
 
   // gỡ lỗi (?debug3d=1): cho kiểm thử tự động đọc khoảng cách / vị trí camera
   useEffect(() => {
@@ -413,7 +432,35 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
         }
       }
       let moved = 0
-      if (goal) {
+      if (walker) {
+        // bộ vật lý: trọng lực, leo cầu thang, trượt dọc tường, hỗ trợ qua cửa; bấm sàn → đi theo navmesh
+        let vel = { x: 0, z: 0 }
+        if (dirK) {
+          const sp = dirK * speed * (dirK < 0 ? 0.6 : 1)
+          vel = { x: fwd.x * sp, z: fwd.z * sp }
+          walkPath3.current = null
+        } else if (walkPath3.current?.length) {
+          const path = walkPath3.current
+          let q = path[0]
+          while (path.length > 1 && Math.hypot(q.x - a.pos.x, q.z - a.pos.z) < 0.12 && Math.abs(q.y - a.pos.y) < 0.6) (path.shift(), (q = path[0]))
+          const dx = q.x - a.pos.x
+          const dz = q.z - a.pos.z
+          const d = Math.hypot(dx, dz)
+          if (d < 0.06 && path.length === 1) walkPath3.current = null
+          else if (d > 1e-4) {
+            const v = Math.min(WALK_SPEED, d / Math.max(dt, 1e-3))
+            vel = { x: (dx / d) * v, z: (dz / d) * v }
+          }
+        }
+        const before = { x: a.pos.x, y: a.pos.y, z: a.pos.z }
+        walker.move(vel, dt)
+        const p = walker.pos
+        a.pos.set(p.x, p.y, p.z)
+        moved = Math.hypot(p.x - before.x, p.z - before.z)
+        if (moved > 1e-4) a.heading = faceFwd ? Math.atan2(fwd.x, fwd.z) : Math.atan2(p.x - before.x, p.z - before.z)
+        else if (walkPath3.current && (vel.x || vel.z)) walkPath3.current = null // bị chặn hẳn
+        if (moved > 1e-4 || Math.abs(p.y - before.y) > 1e-4) void c.moveTo(a.pos.x, a.pos.y + (c.distance < 0.8 ? EYE_HEIGHT : FOLLOW_H), a.pos.z, false)
+      } else if (goal) {
         // đi bằng phím: có hỗ trợ đi qua cửa (không dính cạnh khung cửa khi đi chéo)
         const next = faceFwd
           ? walkStep([a.pos.x, a.pos.z], [fwd.x * Math.sign(dirK), fwd.z * Math.sign(dirK)], Math.hypot(goal[0] - a.pos.x, goal[1] - a.pos.z), blockers, portals)
@@ -440,7 +487,17 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       if (roomCheck.current > 0.3) {
         roomCheck.current = 0
         const here: Point = [a.pos.x * 1000, a.pos.z * 1000]
-        const r = insideFloor.rooms.find((x) => pointInPolygon(here, x.polygon))
+        // leo cầu thang sang tầng khác (bộ vật lý): khi đã đứng trong một phòng của tầng đó thì chọn tầng + phòng đó
+        const byY = walker ? [...sortedFloors(doc)].reverse().find((fl) => M(fl.elevation) <= a.pos.y + 0.4) : null
+        const otherFloor = !!byY && byY.id !== insideFloor.id
+        if (byY && otherFloor) {
+          const r2 = byY.rooms.find((x) => pointInPolygon(here, x.polygon))
+          if (r2) {
+            suppressTeleport.current = true
+            onEnterRoom(byY.id, r2.id)
+          }
+        }
+        const r = otherFloor ? undefined : insideFloor.rooms.find((x) => pointInPolygon(here, x.polygon))
         if (r && r.id !== roomId) {
           suppressTeleport.current = true
           onEnterRoom(insideFloor.id, r.id)
@@ -456,12 +513,18 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
             key === '|'
               ? null
               : {
-                  up: up?.toFloorId ? { floorId: up.toFloorId, name: name(up.toFloorId), arrive: stairEnd(up.polygon, up.upDirection, 'top') } : undefined,
-                  down: down ? { floorId: down.fl.id, name: down.fl.name, arrive: stairEnd(down.st.polygon, down.st.upDirection, 'bottom') } : undefined,
+                  up: up?.toFloorId ? { floorId: up.toFloorId, name: name(up.toFloorId), arrive: stairEnd(up, 'top') } : undefined,
+                  down: down ? { floorId: down.fl.id, name: down.fl.name, arrive: stairEnd(down.st, 'bottom') } : undefined,
                 },
           )
         }
       }
+    }
+    // cần lò xo: camera dừng trước tường / đồ giữa người và camera — không bao giờ lọt ra sau tường
+    if (mode === 'inside' && walker) {
+      const t = target.current
+      const safe = walker.springArm({ x: t.x, y: t.y, z: t.z }, { x: camera.position.x, y: camera.position.y, z: camera.position.z })
+      camera.position.set(safe.x, safe.y, safe.z)
     }
     if (autoRotate && mode === 'orbit' && !c.active) c.azimuthAngle += dt * 0.12
   })
@@ -517,6 +580,7 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
   const floor = floorId === 'all' ? null : floors.find((f) => f.id === floorId) ?? null
   const target = useRef(new THREE.Vector3())
   const walkGoal = useRef<P2[] | null>(null)
+  const walkPath3 = useRef<V3[] | null>(null)
   const avatar = useRef<AvatarState>(newAvatarState())
   const suppressTeleport = useRef(false)
   const rig = useRef<CameraApi | null>(null)
@@ -526,20 +590,29 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
   }, [])
   const insideFloor = floor ?? floors[0] ?? null
   // tường + đồ nội thất chặn người mẫu
-  const blockers = useMemo(() => (insideFloor ? [...blockersOf(insideFloor), ...furnitureBlockers(insideFloor, data.resolved.libraryItems)] : []), [insideFloor, data.resolved.libraryItems])
+  const blockers = useMemo(() => (insideFloor ? [...blockersOf(insideFloor), ...furnitureBlockers(insideFloor, data.resolved.libraryItems), ...stairObstacles(insideFloor)] : []), [insideFloor, data.resolved.libraryItems])
+  // người mẫu vật lý (Rapier + navmesh): nạp khi vào chế độ Đứng trong phòng
+  const walker = useWalker(doc, data.resolved.libraryItems, mode === 'inside')
   const portals = useMemo(() => (insideFloor ? portalsOf(insideFloor) : []), [insideFloor])
   // lưới tìm đường — chỉ dựng khi đang đứng trong nhà
   const navGrid = useMemo(() => (mode === 'inside' && insideFloor ? navGridOf(insideFloor, blockers) : null), [mode, insideFloor, blockers])
   // gỡ lỗi (?debug3d=1): kiểm thử tự động cho người mẫu tự tìm đường tới (x, z)
   useEffect(() => {
     if (!new URLSearchParams(location.search).has('debug3d')) return
-    ;(window as unknown as { __hdWalkTo?: (x: number, z: number) => number | null }).__hdWalkTo = (x, z) => {
+    const win = window as unknown as { __hdWalkTo?: (x: number, z: number, y?: number) => number | null; __hdWalker?: Walker | null }
+    win.__hdWalker = walker
+    win.__hdWalkTo = (x, z, y) => {
       const a = avatar.current
+      if (walker) {
+        const path = walker.pathTo({ x, y: y ?? a.pos.y, z })
+        walkPath3.current = path ? path.slice(1) : null
+        return path ? path.length : null
+      }
       const path = navGrid ? pathTo(navGrid, [a.pos.x, a.pos.z], [x, z]) : null
       walkGoal.current = path ? path.slice(1) : null
       return path ? path.length : null
     }
-  }, [navGrid])
+  }, [navGrid, walker])
 
   const visibleFloors = floor ? floors.filter((f) => f.elevation <= floor.elevation) : floors
   const effWallMode: WallMode = mode === 'inside' || mode === 'facade' || !floor ? 'full' : wallMode
@@ -559,8 +632,14 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
     if (mode === 'inside') {
       // bấm sàn → người tự tìm đường đi tới đó, qua cửa, né đồ (không dịch chuyển tức thì)
       const a = avatar.current
-      const path = navGrid ? pathTo(navGrid, [a.pos.x, a.pos.z], [point.x, point.z]) : null
-      walkGoal.current = path ? path.slice(1) : [[point.x, point.z]]
+      if (walker) {
+        const path3 = walker.pathTo({ x: point.x, y: point.y, z: point.z })
+        walkPath3.current = path3 ? path3.slice(1) : null
+        walkGoal.current = null
+      } else {
+        const path = navGrid ? pathTo(navGrid, [a.pos.x, a.pos.z], [point.x, point.z]) : null
+        walkGoal.current = path ? path.slice(1) : [[point.x, point.z]]
+      }
       if (roomId !== p.roomId) suppressTeleport.current = true
       p.onSelectRoom(f.id, roomId)
       return
@@ -583,7 +662,7 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
       <Lights bounds={bounds} night={night} floor={floor ?? floors[floors.length - 1] ?? null} lowPower={p.lowPower} />
       <CameraRig
         doc={doc} bounds={bounds} floor={floor} roomId={roomId} mode={mode} autoRotate={!!p.autoRotate} target={target}
-        walkGoal={walkGoal} avatar={avatar} blockers={blockers} portals={portals} api={p.cameraApi} rig={rig} suppressTeleport={suppressTeleport}
+        walkGoal={walkGoal} walkPath3={walkPath3} walker={walker} avatar={avatar} blockers={blockers} portals={portals} api={p.cameraApi} rig={rig} suppressTeleport={suppressTeleport}
         onEnterRoom={(fid, rid) => p.onSelectRoom(fid, rid)}
         onStair={p.onStair}
       />

@@ -1,3 +1,4 @@
+import { stairLayout } from '../stairs.ts'
 import { add, bboxOf, lerp, rotatePoint, scale, sub, wallRect, wallSegments, wallsOutline } from '../geometry.ts'
 import type { Bbox2 } from '../geometry.ts'
 import { formatArea, formatMm, roomArea, roomLabelPoint } from '../rules.ts'
@@ -99,27 +100,37 @@ export const planSvg = (floor: Floor, opts: PlanOptions = {}): PlanResult => {
   for (const s of floor.stairs) {
     if (s.polygon.length < 3) continue
     body.push(`<polygon points="${pts(s.polygon)}" fill="#fff" stroke="${st.line}" stroke-width="${f(lw.thin)}"/>`)
-    const b = bboxOf(s.polygon)
-    const c: Point = [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2]
-    const dir = rotatePoint([1, 0], s.upDirection)
-    const perp: Point = [-dir[1], dir[0]]
-    const span = Math.abs(dir[0]) > Math.abs(dir[1]) ? b.maxX - b.minX : b.maxY - b.minY
-    const width = Math.abs(dir[0]) > Math.abs(dir[1]) ? b.maxY - b.minY : b.maxX - b.minX
+    // bậc vuông góc với từng vế, mũi tên chạy theo các vế (thang thẳng hoặc chữ U)
+    const L = stairLayout(s, 1)
     const tread = 260
-    for (let t = -span / 2 + tread; t < span / 2; t += tread) {
-      const m = add(c, scale(dir, t))
+    const path: Point[] = []
+    for (const fl of L.flights) {
+      const span = Math.hypot(fl.to[0] - fl.from[0], fl.to[1] - fl.from[1])
+      if (span < 1) continue
+      const dir: Point = [(fl.to[0] - fl.from[0]) / span, (fl.to[1] - fl.from[1]) / span]
+      const perp: Point = [-dir[1], dir[0]]
+      for (let t = tread; t < span; t += tread) {
+        const m = add(fl.from, scale(dir, t))
+        body.push(
+          `<line x1="${f(m[0] + perp[0] * fl.width / 2)}" y1="${f(m[1] + perp[1] * fl.width / 2)}" x2="${f(m[0] - perp[0] * fl.width / 2)}" y2="${f(m[1] - perp[1] * fl.width / 2)}" stroke="${st.thin}" stroke-width="${f(lw.thin)}"/>`,
+        )
+      }
+      path.push(add(fl.from, scale(dir, tread / 2)), add(fl.to, scale(dir, -tread / 2)))
+    }
+    if (L.landing) body.push(`<polygon points="${pts(L.landing.polygon)}" fill="none" stroke="${st.thin}" stroke-width="${f(lw.thin)}"/>`)
+    if (path.length >= 2) {
+      const p1 = path[path.length - 1]
+      const p0 = path[path.length - 2]
+      const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1
+      const dir: Point = [(p1[0] - p0[0]) / dl, (p1[1] - p0[1]) / dl]
+      const perp: Point = [-dir[1], dir[0]]
+      const h1 = add(p1, add(scale(dir, -k * 1.5), scale(perp, k)))
+      const h2 = add(p1, add(scale(dir, -k * 1.5), scale(perp, -k)))
       body.push(
-        `<line x1="${f(m[0] + perp[0] * width / 2)}" y1="${f(m[1] + perp[1] * width / 2)}" x2="${f(m[0] - perp[0] * width / 2)}" y2="${f(m[1] - perp[1] * width / 2)}" stroke="${st.thin}" stroke-width="${f(lw.thin)}"/>`,
+        `<polyline points="${pts(path)}" fill="none" stroke="${st.line}" stroke-width="${f(lw.thin)}"/>`,
+        `<polyline points="${pts([h1, p1, h2])}" fill="none" stroke="${st.line}" stroke-width="${f(lw.thin)}"/>`,
       )
     }
-    const p0 = add(c, scale(dir, -span / 2 + tread / 2))
-    const p1 = add(c, scale(dir, span / 2 - tread / 2))
-    const h1 = add(p1, add(scale(dir, -k * 1.5), scale(perp, k)))
-    const h2 = add(p1, add(scale(dir, -k * 1.5), scale(perp, -k)))
-    body.push(
-      `<polyline points="${pts([p0, p1])}" fill="none" stroke="${st.line}" stroke-width="${f(lw.thin)}"/>`,
-      `<polyline points="${pts([h1, p1, h2])}" fill="none" stroke="${st.line}" stroke-width="${f(lw.thin)}"/>`,
-    )
   }
 
   // Tường + lỗ cửa

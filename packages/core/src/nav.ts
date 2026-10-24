@@ -1,5 +1,6 @@
 import { pointInPolygon, polygonArea, wallSegments } from './geometry.ts'
 import type { Floor, HouseDocument, Point } from './schema.ts'
+import { stairEnd } from './stairs.ts'
 
 /*
  * Lối đi trong nhà — một nguồn sự thật cho cả trình xem 3D (người mẫu đi, bấm sàn để đi tới), kiểm khi gửi duyệt
@@ -52,7 +53,18 @@ export const furnitureObstacles = (floor: Floor, lib: NavLibrary): Obstacle[] =>
     return [{ c: [it.position[0], it.position[1]] as Point, u: [Math.cos(t), Math.sin(t)] as Point, hl: w / 2, hw: d / 2 }]
   })
 
-export const obstaclesOf = (floor: Floor, lib: NavLibrary = {}) => [...wallObstacles(floor), ...furnitureObstacles(floor, lib)]
+/** Khối cầu thang trên tầng của nó (gầm thang, lan can hai bên) — chỉ đi lên được từ chân thang. */
+export const stairObstacles = (floor: Floor): Obstacle[] =>
+  floor.stairs
+    .filter((s) => s.polygon.length >= 3)
+    .map((s) => {
+      const xs = s.polygon.map((p) => p[0])
+      const ys = s.polygon.map((p) => p[1])
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+      return { c: [(x0 + x1) / 2, (y0 + y1) / 2] as Point, u: [1, 0] as Point, hl: (x1 - x0) / 2, hw: (y1 - y0) / 2 }
+    })
+
+export const obstaclesOf = (floor: Floor, lib: NavLibrary = {}) => [...wallObstacles(floor), ...furnitureObstacles(floor, lib), ...stairObstacles(floor)]
 
 /** Khoảng cách từ điểm tới khối hộp (0 nếu nằm trong). */
 export const distToBox = (p: Point, o: Obstacle) => {
@@ -263,7 +275,7 @@ export const findPath = (g: NavGrid, from: Point, to: Point): Point[] | null => 
 
 // ---------- kiểm lối đi khi dựng (gửi duyệt, test nhà mẫu) ----------
 
-export type NavIssueCode = 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED'
+export type NavIssueCode = 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'STAIR_NOWHERE'
 
 export interface NavIssue {
   code: NavIssueCode
@@ -276,20 +288,6 @@ export interface NavIssue {
   message: string
 }
 
-/** Điểm đứng ở đầu trên (`top`) hoặc chân (`bottom`) cầu thang, cách mép 600 mm (mm). */
-export const stairEnd = (polygon: Point[], upDirection: number, end: 'top' | 'bottom'): Point => {
-  const xs = polygon.map((p) => p[0])
-  const ys = polygon.map((p) => p[1])
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
-  const a = (upDirection * Math.PI) / 180
-  const dx = Math.cos(a)
-  const dy = Math.sin(a)
-  const half = Math.abs(dx) > Math.abs(dy) ? (Math.max(...xs) - Math.min(...xs)) / 2 : (Math.max(...ys) - Math.min(...ys)) / 2
-  const k = (end === 'top' ? 1 : -1) * (half + 600)
-  return [cx + dx * k, cy + dy * k]
-}
-
 const m1 = (mm: number) => (mm / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })
 
 /**
@@ -300,6 +298,17 @@ export const auditFloor = (doc: HouseDocument, floor: Floor, lib: NavLibrary = {
   if (!floor.rooms.length || !floor.walls.length) return []
   const g = grid ?? buildNavGrid(floor, obstaclesOf(floor, lib))
   const out: NavIssue[] = []
+  // tầng trên: chỉ đi được trên sàn thật (phòng, ban công / sân thượng, cầu thang) — ngoài đó là khoảng không
+  if (floor.elevation > Math.min(...doc.floors.map((f) => f.elevation))) {
+    const slab = [...floor.rooms.map((r) => r.polygon), ...floor.areas.map((a) => a.polygon), ...(floor.outline && floor.outline.length > 2 ? [floor.outline] : [])]
+    // lỗ cầu thang từ tầng dưới lên không phải sàn
+    const holes = doc.floors.flatMap((f) => f.stairs.filter((s) => s.toFloorId === floor.id).map((s) => s.polygon))
+    for (let k = 0; k < g.nx * g.ny; k++) {
+      if (g.clear[k] < BODY_RADIUS) continue
+      const c = centerOf(g, k)
+      if (!slab.some((poly) => pointInPolygon(c, poly)) || holes.some((poly) => pointInPolygon(c, poly))) g.clear[k] = 0
+    }
+  }
   const N = g.nx * g.ny
   const roomName = (id: string) => floor.rooms.find((r) => r.id === id)?.name ?? ''
   const roomAt = (p: Point) => floor.rooms.find((r) => pointInPolygon(p, r.polygon))
@@ -307,7 +316,7 @@ export const auditFloor = (doc: HouseDocument, floor: Floor, lib: NavLibrary = {
   // điểm xuất phát
   const seeds: number[] = []
   const exteriorDoor = floor.openings.some((o) => o.kind === 'door' && (floor.walls.find((w) => w.id === o.wallId)?.thickness ?? 0) >= 150)
-  const arrivals = doc.floors.flatMap((f) => f.stairs.filter((s) => s.toFloorId === floor.id).map((s) => stairEnd(s.polygon, s.upDirection, 'top')))
+  const arrivals = doc.floors.flatMap((f) => f.stairs.filter((s) => s.toFloorId === floor.id).map((s) => stairEnd(s, 'top')))
   const ground = floor.elevation <= Math.min(...doc.floors.map((f) => f.elevation))
   if (exteriorDoor && (ground || !arrivals.length)) {
     for (let i = 0; i < g.nx; i++) for (const j of [0, g.ny - 1]) if (freeCell(g, j * g.nx + i)) seeds.push(j * g.nx + i)
@@ -381,7 +390,7 @@ export const auditFloor = (doc: HouseDocument, floor: Floor, lib: NavLibrary = {
       const where = roomAt(at)
       out.push({ code: 'NARROW_PASSAGE', floorId: floor.id, roomId: r.id, at, value: width, message: `${floor.name}: lối vào "${r.name}" chỉ rộng ${m1(width)} m${where && where.id !== r.id ? ` (ở ${where.name})` : ''} — nên ≥ ${m1(NARROW_PASSAGE)} m` })
     }
-    if (2 * widest < CRAMPED_SPOT && area > 3e6)
+    if (2 * widest < CRAMPED_SPOT && area > 3e6 && r.function !== 'stair' && r.function !== 'hall')
       out.push({ code: 'ROOM_CRAMPED', floorId: floor.id, roomId: r.id, value: 2 * widest, message: `${floor.name}: "${r.name}" chật — chỗ trống rộng nhất chỉ ${m1(2 * widest)} m` })
   }
 
@@ -395,13 +404,17 @@ export const auditFloor = (doc: HouseDocument, floor: Floor, lib: NavLibrary = {
       const sides: Point[] = [1, -1].map((k) => [c[0] + L.frame.n[0] * off * k, c[1] + L.frame.n[1] * off * k])
       const names = sides.map((p) => roomAt(p)?.name).filter(Boolean).join(' ↔ ') || 'ra ngoài'
       if (!standable(c, g.obs)) out.push({ code: 'DOOR_BLOCKED', floorId: floor.id, at: c, value: sp.to - sp.from, message: `${floor.name}: cửa ${names} không đi qua được (rộng ${m1(sp.to - sp.from)} m hoặc bị đồ chặn)` })
-      else if (sides.some((p) => clearanceAt(p, g.obs) < BODY_RADIUS && !!roomAt(p))) out.push({ code: 'DOOR_BLOCKED', floorId: floor.id, at: c, message: `${floor.name}: đồ đặt chắn trước cửa ${names}` })
+      else if (sides.some((p) => clearanceAt(p, g.obs) < BODY_RADIUS && !!roomAt(p))) out.push({ code: 'DOOR_BLOCKED', floorId: floor.id, at: c, message: `${floor.name}: lối trước cửa ${names} quá hẹp — vướng đồ, cầu thang hoặc tường` })
     }
 
-  // chân cầu thang lên tầng trên phải tới được
+  // chân cầu thang lên tầng trên phải tới được; cầu thang không dẫn lên đâu (vd. vẽ ở tầng trên cùng) là lỗi dựng
   for (const st of floor.stairs) {
-    if (!st.toFloorId) continue
-    const p = stairEnd(st.polygon, st.upDirection, 'bottom')
+    if (!st.toFloorId) {
+      const p = stairEnd(st, 'bottom')
+      out.push({ code: 'STAIR_NOWHERE', floorId: floor.id, at: p, message: `${floor.name}: cầu thang không dẫn lên tầng nào — chọn tầng đi tới, hoặc xoá nếu vẽ thừa` })
+      continue
+    }
+    const p = stairEnd(st, 'bottom')
     const k = nearestFreeCell(g, p, 1200)
     if (k < 0 || best[k] < 0) out.push({ code: 'STAIR_BLOCKED', floorId: floor.id, at: p, message: `${floor.name}: không đi tới được chân cầu thang` })
   }

@@ -112,6 +112,11 @@ export const Inspector = ({ files, inputFiles }: { files: Record<string, FileInf
             <option value={0}>→ Phải</option><option value={90}>↓ Xuống</option><option value={180}>← Trái</option><option value={270}>↑ Lên</option>
           </select>
         </label>
+        <label className="ins-field"><span>Kiểu thang</span>
+          <select value={s.shape ?? 'straight'} disabled={locked} onChange={(e) => set((x) => (x.shape = e.target.value === 'u' ? 'u' : undefined), 's')}>
+            <option value="straight">Thẳng một vế</option><option value="u">Chữ U (có chiếu nghỉ, vào ra cùng phía)</option>
+          </select>
+        </label>
         <label className="ins-field"><span>Lên tới tầng</span>
           <select value={s.toFloorId ?? ''} disabled={locked} onChange={(e) => set((x) => (x.toFloorId = e.target.value || undefined), 't')}>
             <option value="">—</option>

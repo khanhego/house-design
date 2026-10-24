@@ -2,7 +2,7 @@ import { memo, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
-import { bboxOf, wallsOutline, wallSegments } from '@hd/core'
+import { bboxOf, stairLayout, wallsOutline, wallSegments } from '@hd/core'
 import type { Floor, OutdoorArea, Point, Room, Stair } from '@hd/core'
 import { MAT } from './materials.ts'
 import { floorKindFor, floorTexture, TILE_METERS } from './textures.ts'
@@ -166,29 +166,36 @@ const WallRun = memo(({ layout, elevation, mode, target }: {
 /* ---------- cầu thang ---------- */
 
 const StairMesh = ({ stair, elevation, rise }: { stair: Stair; elevation: number; rise: number }) => {
-  const steps = useMemo(() => {
-    const b = bboxOf(stair.polygon)
-    const ang = ((stair.upDirection % 360) + 360) % 360
-    const alongX = ang < 45 || ang > 315 || (ang > 135 && ang < 225)
-    const span = alongX ? b.maxX - b.minX : b.maxY - b.minY
-    const width = alongX ? b.maxY - b.minY : b.maxX - b.minX
-    const n = Math.max(2, Math.round(rise / 175))
-    const tread = span / n
-    const forward = alongX ? (Math.cos((ang * Math.PI) / 180) >= 0 ? 1 : -1) : Math.sin((ang * Math.PI) / 180) >= 0 ? 1 : -1
-    const out: { pos: [number, number, number]; size: [number, number, number] }[] = []
-    for (let i = 0; i < n; i++) {
-      const t = forward > 0 ? i * tread + tread / 2 : span - i * tread - tread / 2
-      const h = (rise / n) * (i + 1)
-      const cx = alongX ? b.minX + t : (b.minX + b.maxX) / 2
-      const cy = alongX ? (b.minY + b.maxY) / 2 : b.minY + t
-      out.push({ pos: [M(cx), M(h - rise / n / 2), M(cy)], size: alongX ? [M(tread), M(rise / n), M(width)] : [M(width), M(rise / n), M(tread)] })
+  // bậc theo từng vế (thang thẳng hoặc chữ U — stairLayout dùng chung với va chạm đi bộ), chiếu nghỉ
+  const parts = useMemo(() => {
+    const L = stairLayout(stair, rise)
+    const out: { pos: [number, number, number]; size: [number, number, number]; rotY: number }[] = []
+    for (const fl of L.flights) {
+      const dx = fl.to[0] - fl.from[0]
+      const dy = fl.to[1] - fl.from[1]
+      const run = Math.hypot(dx, dy)
+      const dh = fl.h1 - fl.h0
+      const n = Math.max(2, Math.round(dh / 175))
+      const tread = run / n
+      const rotY = -Math.atan2(dy, dx)
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n
+        const h = fl.h0 + (dh / n) * (i + 1)
+        // bậc trên dầm: khối từ mặt bậc xuống 0,25 m (thang chữ U xếp chồng vẫn thông, không đặc tới sàn)
+        const th = Math.min(h, 250 + dh / n)
+        out.push({ pos: [M(fl.from[0] + dx * t), M(h - th / 2), M(fl.from[1] + dy * t)], size: [M(tread), M(th), M(fl.width)], rotY })
+      }
+    }
+    if (L.landing) {
+      const b = bboxOf(L.landing.polygon)
+      out.push({ pos: [M((b.minX + b.maxX) / 2), M(L.landing.h - 100), M((b.minY + b.maxY) / 2)], size: [M(b.maxX - b.minX), M(200), M(b.maxY - b.minY)], rotY: 0 })
     }
     return out
   }, [stair, rise])
   return (
     <group position={[0, M(elevation), 0]}>
-      {steps.map((s, i) => (
-        <mesh key={i} position={s.pos} material={MAT.stair} castShadow receiveShadow>
+      {parts.map((s, i) => (
+        <mesh key={i} position={s.pos} rotation={[0, s.rotY, 0]} material={MAT.stair} castShadow receiveShadow>
           <boxGeometry args={s.size} />
         </mesh>
       ))}

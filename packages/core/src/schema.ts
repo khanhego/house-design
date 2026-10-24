@@ -81,6 +81,8 @@ export const StairSchema = z.object({
   polygon: PolygonSchema,
   upDirection: z.number().finite(),
   toFloorId: id.optional(),
+  /** thẳng (mặc định) hoặc chữ U có chiếu nghỉ — vào / ra cùng một phía, xếp chồng các tầng được */
+  shape: z.enum(['straight', 'u']).optional(),
 })
 
 export const OutdoorAreaSchema = z.object({
