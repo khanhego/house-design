@@ -73,3 +73,21 @@ describe('đi bộ trong nhà — va chạm đồ', async () => {
     expect(stepTowards([1, 1], [5, 1], bl)[0]).toBeCloseTo(5)
   })
 })
+
+describe('đi bộ trong nhà — không kẹt khi tâm phòng trùng bàn', async () => {
+  const { floorFromRects } = await import('@hd/core')
+  const { blockersOf, furnitureBlockers, isFree, nearestFree, stepTowards } = await import('../src/scene/walk.ts')
+  const f = floorFromRects({ name: 'T1', order: 1, elevation: 0, rooms: [{ name: 'Bếp & ăn', function: 'dining', rect: [0, 0, 5000, 4000] }] })
+  f.items = [{ id: 't', source: { libraryItemId: 'table' }, position: [2500, 2000], elevation: 0, rotation: 0 }]
+  const bl = [...blockersOf(f), ...furnitureBlockers(f, { table: { category: 'table', sizeMm: [1600, 750, 900] } })]
+  it('tâm bàn là chỗ bị chặn; người được đặt ra ngoài bàn và đi lại được', () => {
+    expect(isFree([2.5, 2], bl)).toBe(false)
+    const start = nearestFree([2.5, 2], bl)
+    expect(isFree(start, bl)).toBe(true)
+    const moved = stepTowards(start, [start[0], start[1] < 2 ? 0.6 : 3.4], bl)
+    expect(Math.hypot(moved[0] - start[0], moved[1] - start[1])).toBeGreaterThan(0.2)
+  })
+  it('đang kẹt trong đồ vẫn bước ra được', () => {
+    expect(stepTowards([2.5, 2], [2.5, 2.1], bl)).toEqual([2.5, 2.1])
+  })
+})

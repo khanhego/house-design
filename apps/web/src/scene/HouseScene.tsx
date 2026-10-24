@@ -12,7 +12,7 @@ import { MAT } from './materials.ts'
 import { M } from './units.ts'
 import { Avatar, EYE_HEIGHT, newAvatarState } from './Avatar.tsx'
 import type { AvatarState } from './Avatar.tsx'
-import { blockersOf, furnitureBlockers, nearestFree } from './walk.ts'
+import { bestSpot, blockersOf, furnitureBlockers, openHeading } from './walk.ts'
 import { stepTowards } from './walk.ts'
 import type { Blocker, P2 } from './walk.ts'
 
@@ -214,13 +214,10 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       const r = room ?? f.rooms[0]
       if (!r) return
       const [lx, ly] = roomLabelPoint(r.polygon)
-      const [x, z] = nearestFree([M(lx), M(ly)], blockers)
-      // quay theo chiều dài phòng để sau lưng còn chỗ cho camera và nhìn được cả phòng
-      const rb = bboxOf(r.polygon)
-      const along = rb.maxX - rb.minX >= rb.maxY - rb.minY
-      const fwd = along ? (x - M(rb.minX) > M(rb.maxX) - x ? -1 : 1) : (z - M(rb.minY) > M(rb.maxY) - z ? -1 : 1)
+      const [x, z] = bestSpot(r.polygon.map(([px, py]) => [M(px), M(py)] as P2), [M(lx), M(ly)], blockers)
+      // nhìn về hướng thoáng nhất để vừa vào là thấy phòng và đi được ngay
       a.pos.set(x, M(f.elevation), z)
-      a.heading = along ? (fwd > 0 ? Math.PI / 2 : -Math.PI / 2) : fwd > 0 ? 0 : Math.PI
+      a.heading = openHeading([x, z], blockers)
       a.speed = 0
       walkGoal.current = null
       followBehind(smooth)
@@ -449,6 +446,10 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
   const avatar = useRef<AvatarState>(newAvatarState())
   const suppressTeleport = useRef(false)
   const rig = useRef<CameraApi | null>(null)
+  // gỡ lỗi: ?debug3d=1 cho phép đọc vị trí người mẫu từ trình duyệt (kiểm thử tự động)
+  useEffect(() => {
+    if (new URLSearchParams(location.search).has('debug3d')) (window as unknown as { __hdAvatar?: AvatarState }).__hdAvatar = avatar.current
+  }, [])
   const insideFloor = floor ?? floors[0] ?? null
   // tường + đồ nội thất chặn người mẫu
   const blockers = useMemo(() => (insideFloor ? [...blockersOf(insideFloor), ...furnitureBlockers(insideFloor, data.resolved.libraryItems)] : []), [insideFloor, data.resolved.libraryItems])
