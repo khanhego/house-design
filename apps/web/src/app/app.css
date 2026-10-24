@@ -292,3 +292,31 @@ body { background: var(--app-bg); }
 .targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .targets fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; display: grid; gap: 2px; margin: 0; }
 .notice { max-width: 460px; display: grid; gap: 12px; justify-items: start; }
+/* C4 / C5 / A6 */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
+.flt { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.flt select, .flt input { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: var(--surface); font-size: 14px; color: var(--text); min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 8px 12px; font-size: 13px; }
+.seg button.on { background: var(--brand); color: var(--brand-ink); }
+.tbl-wrap { overflow-x: auto; display: grid; gap: 10px; }
+.tbl.leads td { vertical-align: top; }
+.tbl.leads tr.is-new td:first-child { box-shadow: inset 3px 0 0 #e0a440; }
+.tbl.leads .msg { margin-top: 4px; max-width: 280px; }
+.tbl.leads .right .ab, .tbl.leads .right button { margin-left: 4px; }
+.selectable { user-select: all; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.tile span { font-size: 12px; color: var(--muted); }
+.tile strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 10px; }
+.chart .bar { fill: var(--brand); opacity: 0.85; }
+.chart .bar.on { opacity: 1; }
+.chart-tip { margin: 6px 0 0; color: var(--muted); min-height: 1.4em; }
+.tops { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+.top h3 { margin: 0 0 8px; font-size: 14px; }
+.top ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.top li span:first-child { display: inline-block; max-width: calc(100% - 60px); }
+.top li .num { float: right; font-variant-numeric: tabular-nums; }
