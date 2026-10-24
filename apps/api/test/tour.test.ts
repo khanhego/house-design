@@ -17,7 +17,7 @@ let versionId = ''
 const photo = async (w: number, h: number, color: string) =>
   sharp({ create: { width: w, height: h, channels: 3, background: color } })
     .jpeg()
-    .withMetadata({ exif: { IFD0: { Make: 'TestCam', DateTime: '2026:10:20 09:15:00' } } })
+    .withMetadata({ exif: { IFD0: { Make: 'TestCam', DateTime: '2026:10:22 18:00:00' }, IFD2: { DateTimeOriginal: '2026:10:20 09:15:00' } } })
     .toBuffer()
 
 beforeAll(async () => {
@@ -37,6 +37,7 @@ describe('ảnh tour (API-24)', () => {
     const r = await upload(t, `/api/v1/projects/${projectId}/tour-images`, producer, { name: '01-mat-tien.jpg', content: await photo(4000, 3000, '#8899aa'), type: 'image/jpeg' })
     expect(r.status, JSON.stringify(r.json)).toBe(201)
     expect(r.json.image).toMatchObject({ width: 2560, height: 1920 })
+    // lấy giờ chụp gốc (DateTimeOriginal), không phải giờ sửa ảnh (R-T-07)
     expect(r.json.takenAt).toBe('2026-10-20T09:15:00')
     const big = await t.app.inject({ method: 'GET', url: r.json.image.url, headers: { cookie: producer } })
     expect(big.headers['content-type']).toBe('image/webp')
@@ -50,6 +51,33 @@ describe('ảnh tour (API-24)', () => {
     expect(heic.status).toBe(415)
     expect(heic.json.error.message).toContain('HEIC')
     expect((await upload(t, `/api/v1/projects/${projectId}/tour-images`, producer, { name: 'a.gif', content: 'x' })).status).toBe(415)
+    const c = (await t.call('POST', '/api/v1/clients', { cookie: admin, body: { name: 'KH khác' } })).json.client.id
+    const approver = await userWithLogin(t, 'duyet@kh.vn', 'approver', c)
+    expect((await upload(t, `/api/v1/projects/${projectId}/tour-images`, approver, { name: '01.jpg', content: await photo(400, 300, '#000'), type: 'image/jpeg' })).status).toBe(403)
+  })
+  it('clip MP4: xoá metadata vị trí (udta/meta/uuid), từ chối tệp không phải MP4 (BR-T5, R-T-02)', async () => {
+    const box = (type: string, payload: Buffer) => {
+      const h = Buffer.alloc(8)
+      h.writeUInt32BE(8 + payload.length)
+      h.write(type, 4, 'latin1')
+      return Buffer.concat([h, payload])
+    }
+    const gps = Buffer.from('\xa9xyz+21.0285+105.8542/', 'latin1')
+    const mp4 = Buffer.concat([
+      box('ftyp', Buffer.from('isom\0\0\0\0isomiso2avc1mp41', 'latin1')),
+      box('moov', Buffer.concat([box('mvhd', Buffer.alloc(100)), box('udta', box('\xa9xyz', gps)), box('meta', Buffer.from('com.apple.quicktime.location.ISO6709 +21.0285+105.8542', 'latin1'))])),
+      box('uuid', Buffer.from('<x:xmpmeta GPSLatitude="21.0285"/>', 'latin1')),
+      box('mdat', Buffer.alloc(64, 7)),
+    ])
+    const r = await upload(t, '/api/v1/files', producer, { name: 'canh-1-2.mp4', content: mp4, type: 'video/mp4' }, { kind: 'tour_clip', projectId })
+    expect(r.status, JSON.stringify(r.json)).toBe(201)
+    const got = (await t.app.inject({ method: 'GET', url: r.json.file.url, headers: { cookie: producer } })).rawPayload
+    expect(got.length).toBe(mp4.length)
+    expect(got.toString('latin1')).not.toContain('21.0285')
+    expect(got.toString('latin1', 4, 8)).toBe('ftyp')
+    expect(got.subarray(got.length - 64)).toEqual(Buffer.alloc(64, 7)) // dữ liệu hình giữ nguyên
+    const fake = await upload(t, '/api/v1/files', producer, { name: 'virus.mp4', content: 'MZ not a video' }, { kind: 'tour_clip', projectId })
+    expect(fake.status).toBe(415)
   })
 })
 
@@ -99,5 +127,12 @@ describe('mẫu nhà chỉ có tour', () => {
     const h = await t.call('POST', `/api/v1/projects/${projectId}/houses`, { cookie: producer, body: { name: 'Trống', slug: 'trong', houseType: 'apartment', declaredArea: 30 } })
     const v = (await t.call('GET', `/api/v1/versions/${h.json.version.id}`, { cookie: producer })).json
     expect(v.checks.map((c: { code: string }) => c.code)).toContain('NO_CONTENT')
+    const im = (await upload(t, `/api/v1/projects/${projectId}/tour-images`, producer, { name: '01.jpg', content: await photo(800, 600, '#123'), type: 'image/jpeg' })).json
+    const doc = { ...v.document, tour: { autoplaySec: 4, scenes: [{ id: 'scn_x', fileId: im.image.id, smallFileId: im.small.id, title: '', highlights: [] }] } }
+    const saved = await t.call('PUT', `/api/v1/versions/${h.json.version.id}/document`, { cookie: producer, body: { document: doc }, headers: { 'if-match': String(v.revision) } })
+    expect(saved.status, saved.body).toBe(200) // tên trống vẫn tự lưu được (R-T-10)
+    const codes = saved.json.checks.map((c: { code: string }) => c.code)
+    expect(codes).toContain('TOUR_TOO_SHORT')
+    expect(codes).toContain('TOUR_SCENE_NO_TITLE')
   })
 })

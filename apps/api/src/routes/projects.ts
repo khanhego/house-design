@@ -1,5 +1,8 @@
 import sharp from 'sharp'
+import type { OutputInfo } from 'sharp'
 import { Readable } from 'node:stream'
+import { exifDate } from '../lib/exif.ts'
+import { sanitizeMp4 } from '../lib/mp4.ts'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { cloneDocument, emptyDocument, HOUSE_TYPES, HouseDocumentSchema } from '@hd/core'
@@ -36,12 +39,6 @@ const ALLOWED: Record<string, string[]> = {
 }
 
 const TOUR_IMAGE_MAX = 25 * 2 ** 20
-
-/** Thời điểm chụp từ EXIF (YYYY:MM:DD HH:MM:SS → ISO, không múi giờ) — để xếp thứ tự ảnh khi tên tệp không có số (EX-T2). */
-const exifDate = (exif?: Buffer) => {
-  const m = exif?.toString('latin1').match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/)
-  return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null
-}
 
 /** Giới hạn dung lượng riêng theo loại tệp (mặc định MAX_UPLOAD_BYTES). */
 const KIND_LIMIT: Partial<Record<FileKind, number>> = { tour_clip: 20 * 2 ** 20 }
@@ -295,6 +292,14 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
         throw e
       }
     } else if (f.projectId) ctx.db.run('UPDATE files SET project_id = NULL WHERE id = ?', f.id)
+    // clip tour: phải là MP4 thật; xoá metadata (vị trí GPS của iPhone) trước khi có thể công khai (BR-T5, R-T-02)
+    if (f.kind === 'tour_clip') {
+      const chunks: Buffer[] = []
+      for await (const c of ctx.storage.stream(f.storageKey)) chunks.push(c as Buffer)
+      const data = Buffer.concat(chunks)
+      if (sanitizeMp4(data) === null) throw new AppError(415, 'UNSUPPORTED_FILE', bad('Tệp không phải video MP4 hợp lệ'))
+      await ctx.storage.putStream(f.storageKey, Readable.from([data]), data.length + 1)
+    }
     return reply.status(201).send({ file: fileOut(ctx.repos.files.get(f.id)!) })
   })
 
@@ -319,16 +324,20 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
     } catch {
       throw new AppError(413, 'FILE_TOO_LARGE', `Ảnh ${part.filename} vượt ${TOUR_IMAGE_MAX / 2 ** 20} MB`)
     }
+    // một lần giải mã, giới hạn 60 Mpx để ảnh khổng lồ không chiếm hết bộ nhớ (R-T-06)
     let takenAt: string | null = null
+    let big: { data: Buffer; info: OutputInfo }
+    let small: { data: Buffer; info: OutputInfo }
     try {
-      takenAt = exifDate((await sharp(buf).metadata()).exif)
+      const src = sharp(buf, { limitInputPixels: 60_000_000 })
+      takenAt = exifDate((await src.metadata()).exif)
+      const base2 = src.rotate()
+      big = await base2.clone().resize(2560, 2560, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toBuffer({ resolveWithObject: true })
+      small = await base2.clone().resize(1280, 1280, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 78 }).toBuffer({ resolveWithObject: true })
     } catch {
-      throw new AppError(415, 'UNSUPPORTED_FILE', `Không đọc được ảnh ${part.filename}`)
+      throw new AppError(415, 'UNSUPPORTED_FILE', `Không đọc được ảnh ${part.filename} (hỏng hoặc lớn hơn 60 megapixel)`)
     }
     const base = part.filename.replace(/\.[^.]+$/, '').slice(0, 120)
-    const make = (size: number, quality: number) =>
-      sharp(buf).rotate().resize(size, size, { fit: 'inside', withoutEnlargement: true }).webp({ quality }).toBuffer({ resolveWithObject: true })
-    const [big, small] = await Promise.all([make(2560, 82), make(1280, 78)])
     const save = async (data: Buffer, name: string) => {
       const key = ctx.storage.newKey('tour_image', name)
       await ctx.storage.putStream(key, Readable.from([data]), data.length + 1)

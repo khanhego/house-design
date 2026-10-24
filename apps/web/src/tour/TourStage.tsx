@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import type { Floor, HouseDocument, TourScene } from '@hd/core'
 import { TourPlayer } from './TourPlayer.tsx'
 import type { PlayerScene } from './TourPlayer.tsx'
+
+const opened = new Set<string>()
+const completed = new Set<string>()
 
 /** Tab "Ảnh thật" trong V2 (V6): chuyển dữ liệu tour đã phát hành sang trình xem, ghi sự kiện. */
 export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, onAction }: {
@@ -33,8 +36,11 @@ export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, 
       }),
     [raw, files, floors, has3d],
   )
-  const done = useRef(false)
-  useEffect(() => events.tourOpen?.(), [])
+  // mỗi lần tải trang chỉ ghi một lần mở / hoàn thành tour, chuyển tab qua lại không đếm lặp (R-T-11)
+  const key = doc.tour?.scenes[0]?.id ?? ''
+  useEffect(() => {
+    if (!opened.has(key)) (opened.add(key), events.tourOpen?.())
+  }, [key])
   const hasClipAi = raw.some((s) => s.clipSource === 'ai')
 
   if (scenes.length < 2) return <div className="v-splash">Tour ảnh chưa sẵn sàng.</div>
@@ -46,8 +52,8 @@ export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, 
         onIndex={(i) => {
           onScene(scenes[i].id)
           events.tourScene?.(scenes[i].id)
-          if (i === scenes.length - 1 && !done.current) {
-            done.current = true
+          if (i === scenes.length - 1 && !completed.has(key)) {
+            completed.add(key)
             events.tourComplete?.()
           }
         }}

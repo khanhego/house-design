@@ -125,3 +125,25 @@ describe('tên cảnh — từ điển phòng', async () => {
     expect(sceneTitle('20-ho-boi.jpg', 20)).toBe('Hồ bơi')
   })
 })
+
+describe('BR-T3 — clip chuyển cảnh khi đổi thứ tự / xoá / thay ảnh', async () => {
+  const { moveScene, removeScene, replacedImage } = await import('../src/tour/order.ts')
+  const mk = () => [1, 2, 3, 4, 5].map((n) => ({ id: `s${n}`, clipFileId: `c${n}` as string | undefined }))
+  it('kéo cảnh 3 lên trước cảnh 2 → gỡ clip 1→2, 2→3, 3→4 (ví dụ SRS)', () => {
+    const { list, dropped } = moveScene(mk(), 's3', 's2')
+    expect(list.map((s) => s.id)).toEqual(['s1', 's3', 's2', 's4', 's5'])
+    expect(dropped).toBe(3)
+    expect(list.filter((s) => s.clipFileId).map((s) => s.id)).toEqual(['s4', 's5'])
+  })
+  it('kéo tới: cảnh đứng sau cảnh được thả lên', () => {
+    expect(moveScene(mk(), 's1', 's3').list.map((s) => s.id)).toEqual(['s2', 's3', 's1', 's4', 's5'])
+  })
+  it('xoá cảnh 3 → gỡ clip của cảnh 2; thay ảnh cảnh 3 → gỡ clip 2→3 và 3→4', () => {
+    const r = removeScene(mk(), 's3')
+    expect(r.dropped).toBe(1)
+    expect(r.list.find((s) => s.id === 's2')!.clipFileId).toBeUndefined()
+    const t = replacedImage(mk(), 's3')
+    expect(t.dropped).toBe(2)
+    expect(t.list.filter((s) => s.clipFileId).map((s) => s.id)).toEqual(['s1', 's4', 's5'])
+  })
+})

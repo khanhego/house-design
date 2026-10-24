@@ -7,7 +7,7 @@ import { Button, copyText, errMsg, toast } from '../../ui.tsx'
 import { useEditor } from './store.ts'
 import { TourPlayer } from '../../../tour/TourPlayer.tsx'
 import type { PlayerScene, TourPlayerHandle } from '../../../tour/TourPlayer.tsx'
-import { orderPhotos, sceneTitle } from '../../../tour/order.ts'
+import { moveScene, orderPhotos, removeScene, replacedImage, sceneTitle } from '../../../tour/order.ts'
 import { AI_CLIP_PROMPT, exportGuidePdf, GUIDE, GUIDE_INTRO } from '../../../tour/guide.ts'
 import type { FileOut } from '../../types.ts'
 
@@ -27,6 +27,7 @@ const clipDuration = (file: File) =>
     v.preload = 'metadata'
     v.onloadedmetadata = () => (resolve(v.duration), URL.revokeObjectURL(v.src))
     v.onerror = () => resolve(Number.NaN)
+    setTimeout(() => resolve(Number.NaN), 8000)
     v.src = URL.createObjectURL(file)
   })
 
@@ -66,7 +67,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
   // tải nhiều ảnh: tuần tự, rồi xếp theo tên tệp / giờ chụp (FR-12.02, EX-T2)
   const addPhotos = async (list: FileList | null) => {
     const all = Array.from(list ?? [])
-    if (!all.length) return
+    if (!all.length || progress) return
     const room = MAX_TOUR_SCENES - scenes.length
     if (all.length > room) toast(`Tour tối đa ${MAX_TOUR_SCENES} cảnh — chỉ thêm ${room} ảnh đầu`, 'danger')
     const picked = all.slice(0, Math.max(0, room))
@@ -90,49 +91,32 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
     qc.setQueryData<Record<string, string>>(['files', projectId, 'tour'], (m) => ({ ...(m ?? {}), ...Object.fromEntries(items.flatMap((d) => [[d.image.id, d.image.url], [d.small.id, d.small.url]])) }))
     const base = scenes.length
     const added: TourScene[] = items.map((d, i) => ({ id: newId('scn'), fileId: d.image.id, smallFileId: d.small.id, title: sceneTitle(d.name, base + i + 1), highlights: [] }))
-    setTour((l) => [...l, ...added])
+    // kiểm lại giới hạn trên danh sách mới nhất (hai lần thả liên tiếp)
+    setTour((l) => [...l, ...added].slice(0, MAX_TOUR_SCENES))
     setSelId(added[0].id)
     toast(`Đã thêm ${added.length} cảnh${by === 'name' ? ' (xếp theo số trong tên tệp)' : by === 'time' ? ' — tên tệp không có số, đã xếp theo giờ chụp: kiểm lại thứ tự' : ' — kiểm lại thứ tự'}`, by === 'name' ? undefined : 'danger')
     if (warn.length) toast(warn.slice(0, 3).join(' · '), 'danger')
   }
 
-  // đổi thứ tự: cặp cảnh đổi thì gỡ clip của cặp đó (BR-T3)
-  const move = (fromId: string, toId: string) => {
-    if (fromId === toId) return
+  // đổi thứ tự / xoá: cặp cảnh đổi thì gỡ clip của cặp đó (BR-T3)
+  const applyLinked = (fn: (list: TourScene[]) => { list: TourScene[]; dropped: number }) => {
     let dropped = 0
     setTour((list) => {
-      const nextOf = new Map(list.map((s, i) => [s.id, list[i + 1]?.id]))
-      const out = [...list]
-      const from = out.findIndex((s) => s.id === fromId)
-      const [it] = out.splice(from, 1)
-      out.splice(out.findIndex((s) => s.id === toId) + (from <= out.findIndex((s) => s.id === toId) ? 1 : 0), 0, it)
-      return out.map((s, i) => {
-        if (s.clipFileId && nextOf.get(s.id) !== out[i + 1]?.id) {
-          dropped++
-          const { clipFileId: _c, clipSource: _s, ...rest } = s
-          return rest
-        }
-        return s
-      })
+      const r = fn(list)
+      dropped = r.dropped
+      return r.list
     })
-    if (dropped) toast(`Đã gỡ ${dropped} clip chuyển cảnh vì thứ tự cảnh thay đổi`, 'danger')
+    if (dropped) toast(`Đã gỡ ${dropped} clip chuyển cảnh vì cặp cảnh thay đổi`, 'danger')
   }
-
-  const remove = (id: string) => {
-    setTour((list) => {
-      const i = list.findIndex((s) => s.id === id)
-      return list
-        .filter((s) => s.id !== id)
-        .map((s, k) => (k === i - 1 && s.clipFileId ? (({ clipFileId: _c, clipSource: _s, ...rest }) => rest)(s) : s))
-    })
-    setSelId(null)
-  }
+  const move = (fromId: string, toId: string) => applyLinked((list) => moveScene(list, fromId, toId))
+  const remove = (id: string) => (applyLinked((list) => removeScene(list, id)), setSelId(null))
 
   const replaceImage = async (id: string, f: File | undefined) => {
     if (!f) return
     try {
       const r = await upload<Uploaded>(`projects/${projectId}/tour-images`, f)
       qc.setQueryData<Record<string, string>>(['files', projectId, 'tour'], (m) => ({ ...(m ?? {}), [r.image.id]: r.image.url, [r.small.id]: r.small.url }))
+      applyLinked((list) => replacedImage(list, id))
       setScene(id, (s) => ((s.fileId = r.image.id), (s.smallFileId = r.small.id), delete s.next), 'img')
       toast('Đã thay ảnh — đặt lại điểm đi tiếp')
     } catch (e) {
@@ -157,9 +141,13 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
   }
 
   // ảnh xem thử
-  const playerScenes: PlayerScene[] = scenes
-    .filter((s) => url(s.fileId))
-    .map((s) => ({ id: s.id, title: s.title, description: s.description, highlights: s.highlights, next: s.next, src: url(s.fileId)!, srcSmall: url(s.smallFileId) ?? url(s.fileId)!, clip: url(s.clipFileId) ?? null }))
+  const playerScenes: PlayerScene[] = useMemo(
+    () =>
+      scenes
+        .filter((s) => files.data?.[s.fileId])
+        .map((s) => ({ id: s.id, title: s.title || 'Chưa đặt tên', description: s.description, highlights: s.highlights, next: s.next, src: files.data![s.fileId], srcSmall: files.data![s.smallFileId] ?? files.data![s.fileId], clip: (s.clipFileId && files.data![s.clipFileId]) || null })),
+    [scenes, files.data],
+  )
   const previewPair = (i: number) => {
     setPreview((p) => ({ key: p.key + 1, start: i, play: true }))
     setTimeout(() => player.current?.next(), 700)
@@ -170,7 +158,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
   return (
     <div className="tour-tab">
       <div className="tour-top">
-        <label className={`tour-drop${locked ? ' off' : ''}`} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), !locked && void addPhotos(e.dataTransfer.files))}>
+        <label className={`tour-drop${locked ? ' off' : ''}`} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), !locked && !progress && void addPhotos(e.dataTransfer.files))}>
           <input type="file" hidden multiple accept="image/jpeg,image/png,image/webp" disabled={locked || !!progress} onChange={(e) => (void addPhotos(e.target.files), (e.target.value = ''))} />
           {progress ? `Đang xử lý ảnh ${progress.done}/${progress.total}…` : 'Kéo thả ảnh vào đây hoặc bấm để chọn (JPG, PNG, WebP · tối đa 60 cảnh)'}
         </label>
@@ -265,7 +253,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
           {sel ? (
             <div className="ins">
               <h3>Cảnh {selIdx + 1}</h3>
-              <label className="ins-field"><span>Tên cảnh</span><input disabled={locked} maxLength={80} value={sel.title} onChange={(e) => setScene(sel.id, (s) => (s.title = e.target.value || ' '), 't')} /></label>
+              <label className="ins-field"><span>Tên cảnh</span><input disabled={locked} maxLength={80} value={sel.title} onChange={(e) => setScene(sel.id, (s) => (s.title = e.target.value), 't')} /></label>
               <label className="ins-field"><span>Mô tả</span><textarea rows={2} disabled={locked} maxLength={300} value={sel.description ?? ''} onChange={(e) => setScene(sel.id, (s) => (s.description = e.target.value || undefined), 'd')} /></label>
               {[0, 1, 2].map((k) => (
                 <label key={k} className="ins-field"><span>Điểm nổi bật {k + 1}</span>

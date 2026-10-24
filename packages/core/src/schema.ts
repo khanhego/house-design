@@ -165,7 +165,8 @@ export const TourSceneSchema = z.object({
   id,
   fileId: id,
   smallFileId: id,
-  title: z.string().trim().min(1).max(80),
+  // để trống được khi đang dựng (tự lưu không hỏng); gửi duyệt mới bắt buộc (BR-T1)
+  title: z.string().trim().max(80),
   description: z.string().max(300).optional(),
   highlights: z.array(z.string().trim().min(1).max(60)).max(3),
   next: z.tuple([unit, unit]).optional(),

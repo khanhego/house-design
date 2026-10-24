@@ -44,3 +44,4 @@
   .tour-nav { width: 44px; height: 44px; font-size: 28px; }
   .tour-nav.next { width: 52px; height: 52px; }
 }
+.tour-skip { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: 16px; z-index: 6; border: 1px solid rgba(255, 255, 255, 0.5); background: rgba(0, 0, 0, 0.45); color: #fff; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }

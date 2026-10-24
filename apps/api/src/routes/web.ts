@@ -12,6 +12,8 @@ const CSP_BASE = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' blob: data:",
+  // clip chuyển cảnh tour (item 02) + đọc thời lượng clip trước khi tải lên ở trình dựng
+  "media-src 'self' blob:",
   "connect-src 'self' blob: https://challenges.cloudflare.com",
   'frame-src https://challenges.cloudflare.com',
   "worker-src 'self' blob:",

@@ -32,6 +32,7 @@ describe('phục vụ web build (routes/web.ts)', () => {
     const v = await t.call('GET', '/v/khong-co')
     expect(v.body).toContain('viewer')
     expect(String(v.headers['content-security-policy'])).toContain('frame-ancestors *')
+    expect(String(v.headers['content-security-policy'])).toContain("media-src 'self' blob:")
     const a = await t.call('GET', '/studio/projects')
     expect(String(a.headers['content-security-policy'])).toContain("frame-ancestors 'none'")
     expect(a.headers['x-robots-tag']).toBe('noindex')

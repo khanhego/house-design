@@ -81,11 +81,11 @@ Như SRS hệ thống. Thêm vai trò ngoài hệ thống: **người chụp** (
 | ID | Yêu cầu | Ưu tiên | Phase | Nguồn |
 |---|---|:---:|:---:|---|
 | FR-12.01 | Hệ thống phải cho mỗi mẫu nhà có **tối đa một tour ảnh** gồm 2–60 cảnh có thứ tự | M | 1 | P-T1 |
-| FR-12.02 | Hệ thống phải cho tải nhiều ảnh một lần (kéo thả, JPG/PNG/WebP/HEIC, ≤ 15 MB/ảnh), tự xếp theo số đầu tên tệp (EX-T2) | M | 1 | B2 |
+| FR-12.02 | Hệ thống phải cho tải nhiều ảnh một lần (kéo thả, JPG/PNG/WebP, ≤ 25 MB và ≤ 60 megapixel/ảnh; HEIC → hướng dẫn xuất JPG, DEC-T5), tự xếp theo số đầu tên tệp, không có số thì theo giờ chụp gốc EXIF (EX-T2) | M | 1 | B2 |
 | FR-12.03 | Hệ thống phải cho đổi thứ tự bằng kéo thả, xoá cảnh, thay ảnh của cảnh | M | 1 | B3 |
 | FR-12.04 | Mỗi cảnh phải có: tên (bắt buộc, ≤ 80 ký tự), mô tả (≤ 300), điểm đi tiếp (toạ độ tương đối trên ảnh), phòng/tầng liên kết (tuỳ chọn), tối đa 3 dòng thông tin nổi bật | M | 1 | B3 |
 | FR-12.05 | Hệ thống phải chuyển cảnh **mô phỏng**: phóng dần vào điểm đi tiếp của cảnh *n* đồng thời mờ dần sang cảnh *n+1* đang thu từ gần ra, tổng ≤ 1,2 s; ngược lại khi Lùi | M | 1 | P-T1 |
-| FR-12.06 | Hệ thống phải cho gắn **clip chuyển cảnh** (MP4 H.264, ≤ 15 s, ≤ 20 MB) cho từng cặp cảnh; có clip thì phát clip thay cho mô phỏng, khung cuối clip khớp ảnh cảnh sau | S | 1 | Q-1 (C) |
+| FR-12.06 | Hệ thống phải cho gắn **clip chuyển cảnh** (MP4 H.264, ≤ 15 s, ≤ 20 MB) cho từng cặp cảnh; có clip thì phát clip thay cho mô phỏng, khung cuối clip khớp ảnh cảnh sau. Server kiểm đúng MP4 và xoá metadata (vị trí GPS). Clip không phát được trong 8 s hoặc nghẽn → bỏ clip, sang cảnh sau; người xem bấm "Bỏ qua clip" được | S | 1 | Q-1 (C), BR-T5 |
 | FR-12.07 | Trình xem phải có: Tiếp, Lùi, chấm tiến độ (bấm để nhảy), phím ←/→, vuốt trái/phải, **Tự chạy** (dừng ở mỗi cảnh 4 s, dừng khi người xem chạm), toàn màn hình | M | 1 | B6 |
 | FR-12.08 | Trình xem phải hiện tên cảnh, mô tả, thông tin nổi bật dạng thẻ; nếu cảnh liên kết phòng của mẫu nhà 3D thì có nút "Xem phòng này 3D" và "Mặt bằng" | M | 1 | B6 |
 | FR-12.09 | Trình xem phải tải trước ảnh của 2 cảnh kế tiếp và 1 cảnh trước; ảnh phục vụ theo bản tối ưu (cạnh dài 2.560 px WebP, kèm bản 1.280 px cho điện thoại) | M | 1 | NFR-T1 |
@@ -121,11 +121,11 @@ Như SRS hệ thống. Thêm vai trò ngoài hệ thống: **người chụp** (
 
 | ID | Quy tắc | Ví dụ |
 |---|---|---|
-| BR-T1 | Gửi duyệt tour: ≥ 2 cảnh; mọi cảnh có tên. **Cảnh báo** (không chặn): cảnh thiếu điểm đi tiếp, ảnh dọc/nhỏ | Tour 1 cảnh → chặn "Tour cần ít nhất 2 cảnh" |
+| BR-T1 | Gửi duyệt tour: ≥ 2 cảnh; mọi cảnh có tên (khi dựng được để trống tạm thời). **Cảnh báo** (không chặn): cảnh thiếu điểm đi tiếp, ảnh dọc/nhỏ | Tour 1 cảnh → chặn "Tour ảnh thật cần ít nhất 2 cảnh"; cảnh trống tên → chặn "Cảnh n chưa có tên" |
 | BR-T2 | Thứ tự cảnh là thứ tự đi; Lùi đi ngược đúng thứ tự | Cảnh 5 → Lùi → cảnh 4 (chuyển cảnh mô phỏng ngược) |
 | BR-T3 | Clip chuyển cảnh chỉ dùng cho đúng cặp (n → n+1); đổi thứ tự làm cặp đổi thì **gỡ clip** của các cặp bị ảnh hưởng và báo người dựng | Kéo cảnh 3 lên trước cảnh 2 → gỡ clip 1→2, 2→3, 3→4 |
 | BR-T4 | Clip do AI tạo phải được người dựng xem hết trước khi gắn; phát hành kèm dòng "Chuyển cảnh minh hoạ do AI dựng" khi tour có clip AI | Tránh quảng cáo sai hiện trạng (nội thất, kết cấu "bịa") |
-| BR-T5 | Ảnh gốc người chụp tải lên **không công khai**; chỉ bản tối ưu (đã xoá EXIF/GPS) được phục vụ | Bảo vệ vị trí nhà, thiết bị người chụp |
+| BR-T5 | Ảnh gốc người chụp tải lên **không lưu**; chỉ bản tối ưu (đã xoá EXIF/GPS) được phục vụ. Clip MP4: xoá hộp metadata `udta`/`meta`/`uuid` (iPhone ghi vị trí ở đây) | Bảo vệ vị trí nhà, thiết bị người chụp |
 
 ## 8. Phi chức năng
 

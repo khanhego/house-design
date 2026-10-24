@@ -86,3 +86,52 @@ export const sceneTitle = (fileName: string, n: number) => {
   }
   return (t.charAt(0).toUpperCase() + t.slice(1)).slice(0, 80)
 }
+
+/* Thứ tự cảnh & clip chuyển cảnh (BR-T3): clip quay từ cảnh n sang n+1, cặp đổi thì clip mất hiệu lực. */
+
+interface Linkable {
+  id: string
+  clipFileId?: string
+  clipSource?: 'upload' | 'ai'
+}
+
+const dropClip = <T extends Linkable>(s: T): T => {
+  const { clipFileId: _c, clipSource: _s, ...rest } = s
+  return rest as T
+}
+
+/** Gỡ clip của mọi cảnh mà cảnh kế tiếp đã khác so với danh sách trước. Trả danh sách mới + số clip đã gỡ. */
+export const relinkClips = <T extends Linkable>(before: T[], after: T[]): { list: T[]; dropped: number } => {
+  const nextOf = new Map(before.map((s, i) => [s.id, before[i + 1]?.id]))
+  let dropped = 0
+  const list = after.map((s, i) => {
+    if (s.clipFileId && nextOf.get(s.id) !== after[i + 1]?.id) {
+      dropped++
+      return dropClip(s)
+    }
+    return s
+  })
+  return { list, dropped }
+}
+
+/** Kéo cảnh `fromId` thả lên `toId`: kéo tới thì đứng sau, kéo lui thì đứng trước. */
+export const moveScene = <T extends Linkable>(list: T[], fromId: string, toId: string) => {
+  const from = list.findIndex((s) => s.id === fromId)
+  const to = list.findIndex((s) => s.id === toId)
+  if (from < 0 || to < 0 || from === to) return { list, dropped: 0 }
+  const out = [...list]
+  const [it] = out.splice(from, 1)
+  out.splice(out.findIndex((s) => s.id === toId) + (from < to ? 1 : 0), 0, it)
+  return relinkClips(list, out)
+}
+
+/** Xoá cảnh: clip của cảnh đứng trước (đang trỏ vào cảnh bị xoá) bị gỡ. */
+export const removeScene = <T extends Linkable>(list: T[], id: string) => relinkClips(list, list.filter((s) => s.id !== id))
+
+/** Thay ảnh cảnh `id`: gỡ clip của cặp (n−1 → n) và (n → n+1) vì khung đầu/cuối không còn khớp (R-T-08). */
+export const replacedImage = <T extends Linkable>(list: T[], id: string) => {
+  const i = list.findIndex((s) => s.id === id)
+  let dropped = 0
+  const out = list.map((s, k) => ((k === i || k === i - 1) && s.clipFileId ? (dropped++, dropClip(s)) : s))
+  return { list: out, dropped }
+}

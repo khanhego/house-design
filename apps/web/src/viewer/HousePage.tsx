@@ -1,7 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useProgress } from '@react-three/drei'
-import { assignItemsToRooms, floorHasContent, formatArea, hasTour, roomArea, sortedFloors } from '@hd/core'
+import { assignItemsToRooms, floorHasContent, formatArea, hasModel3d, hasTour, roomArea, sortedFloors } from '@hd/core'
 import type { Floor, PublicHousePayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
 import type { CameraApi, StairOption, ViewMode, WallMode } from '../scene/HouseScene.tsx'
@@ -59,7 +59,8 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const doc = data.document
   // chỉ tầng có nội dung dựng mới xem 3D; mẫu nhà chỉ có tour ảnh thật thì không có tầng (item 02)
   const floors = useMemo(() => sortedFloors(doc).filter(floorHasContent), [doc])
-  const has3d = floors.length > 0 && !no3d
+  // cùng điều kiện với nhãn "3D" ở trang dự án (R-T-03)
+  const has3d = hasModel3d(doc) && !no3d
   const tourOk = hasTour(doc)
   const single = floors.length === 1
   const hasExterior = data.house.houseType !== 'apartment'

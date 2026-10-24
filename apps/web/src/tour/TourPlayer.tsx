@@ -46,6 +46,7 @@ const srcOf = (s: PlayerScene) => (bigScreen() ? s.src : s.srcSmall)
 
 const loaded = new Map<string, Promise<void>>()
 const preload = (url: string) => {
+  if (loaded.size > 200) loaded.clear()
   if (!loaded.has(url))
     loaded.set(
       url,
@@ -84,38 +85,50 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
   const curRef = useRef(cur)
   curRef.current = cur
   const busyRef = useRef(false)
+  // còn hiển thị không — chuyển tab giữa lúc tải ảnh thì dừng, không đụng DOM đã gỡ (R-T-04)
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      layers.forEach((l) => l.current?.getAnimations().forEach((a) => a.cancel()))
+      video.current?.pause()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // gọi lại mới nhất, không làm đổi `go` mỗi lần cha vẽ lại (R-T-05)
+  const onIndexRef = useRef(onIndex)
+  onIndexRef.current = onIndex
+  const skipClip = useRef<(() => void) | null>(null)
 
   // ảnh đầu
   useEffect(() => {
     const s = scenes[cur]
     const a = layers[front.current].current
     if (s && a && !a.src) a.src = srcOf(s)
-    onIndex?.(cur)
+    onIndexRef.current?.(cur)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // tải trước cảnh kế, kế nữa và cảnh trước (FR-12.09)
   useEffect(() => {
     for (const k of [cur + 1, cur + 2, cur - 1]) if (scenes[k]) void preload(srcOf(scenes[k]))
-    if (scenes[cur]?.clip) {
-      const l = document.createElement('link')
-      l.rel = 'preload'
-      l.as = 'video'
-      l.href = scenes[cur].clip!
-      document.head.appendChild(l)
-      return () => l.remove()
+    // nạp sẵn clip của cặp kế tiếp vào thẻ video (thẻ <link preload as=video> không được hỗ trợ)
+    const v = video.current
+    const clip = scenes[cur]?.clip
+    if (v && clip && v.getAttribute('src') !== clip && !busyRef.current) {
+      v.src = clip
+      v.load()
     }
   }, [cur, scenes])
 
-  const finish = useCallback(
-    (target: number) => {
-      setCur(target)
-      busyRef.current = false
-      setBusy(false)
-      onIndex?.(target)
-    },
-    [onIndex],
-  )
+  const finish = useCallback((target: number) => {
+    busyRef.current = false
+    if (!alive.current) return
+    setCur(target)
+    setBusy(false)
+    onIndexRef.current?.(target)
+  }, [])
 
   const go = useCallback(
     async (target: number) => {
@@ -129,16 +142,19 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       const url = srcOf(sTo)
       setWaiting(true)
       await preload(url)
+      if (!alive.current) return void (busyRef.current = false)
       setWaiting(false)
-      const A = layers[front.current].current!
-      const B = layers[1 - front.current].current!
+      const A = layers[front.current].current
+      const B = layers[1 - front.current].current
+      if (!A || !B || !box.current) return void (busyRef.current = false)
       B.src = url
       try {
         await B.decode()
       } catch {
         /* ảnh hỏng vẫn chuyển */
       }
-      const rect = box.current!.getBoundingClientRect()
+      if (!alive.current) return void (busyRef.current = false)
+      const rect = box.current.getBoundingClientRect()
       const forward = target === from + 1
       const backward = target === from - 1
       const swap = () => {
@@ -155,23 +171,40 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       // clip chuyển cảnh (FR-12.06): chỉ khi đi tới
       if (forward && sFrom.clip && video.current && !reducedMotion()) {
         const v = video.current
-        v.src = sFrom.clip
-        setShowVideo(true)
+        if (v.getAttribute('src') !== sFrom.clip) v.src = sFrom.clip
+        v.currentTime = 0
+        // clip nghẽn mạng không được làm kẹt trình xem (R-T-01): hết giờ / nghẽn / chạm → bỏ clip, sang cảnh sau
+        let finished = false
+        let watchdog: ReturnType<typeof setTimeout>
         const done = () => {
-          v.onended = null
-          v.onerror = null
+          if (finished) return
+          finished = true
+          clearTimeout(watchdog)
+          v.onended = v.onerror = v.onstalled = null
+          v.pause()
+          skipClip.current = null
+          setWaiting(false)
           swap()
           setShowVideo(false)
         }
+        skipClip.current = done
         v.onended = done
         v.onerror = done
+        v.onstalled = done
+        watchdog = setTimeout(done, 8000) // chưa phát được trong 8 giây
+        setWaiting(true)
         try {
           await v.play()
-          return
+          if (finished) return
+          setWaiting(false)
+          setShowVideo(true)
+          clearTimeout(watchdog)
+          const total = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : 15
+          watchdog = setTimeout(done, (total + 3) * 1000)
         } catch {
           done()
-          return
         }
+        return
       }
 
       B.style.zIndex = '2'
@@ -217,7 +250,12 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       setEnded(true)
       return
     }
-    const t = setTimeout(() => void go(curRef.current + 1), autoplaySec * 1000)
+    const tick = () => {
+      // đang mở hộp thoại (vd. form để lại SĐT) → chờ, không tự chuyển cảnh (R-T-05)
+      if (document.querySelector('[aria-modal="true"]')) return void (t = setTimeout(tick, 1000))
+      void go(curRef.current + 1)
+    }
+    let t = setTimeout(tick, autoplaySec * 1000)
     return () => clearTimeout(t)
   }, [playing, busy, cur, autoplaySec, scenes.length, go])
 
@@ -265,6 +303,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       <img ref={layers[0]} className="tour-img" alt="" draggable={false} style={{ opacity: 1, zIndex: 2 }} />
       <img ref={layers[1]} className="tour-img" alt="" draggable={false} style={{ opacity: 0, zIndex: 1 }} />
       <video ref={video} className="tour-video" muted playsInline preload="auto" style={{ display: showVideo ? 'block' : 'none' }} />
+      {showVideo && <button className="tour-skip" onClick={() => skipClip.current?.()}>Bỏ qua clip ›</button>}
 
       {waiting && <div className="tour-wait" aria-live="polite"><span className="tour-spin" />Đang tải ảnh…</div>}
 
@@ -295,7 +334,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
           </div>
         )}
         <button className="tour-pill" onClick={() => setPlaying((p) => !p)} aria-pressed={playing}>{playing ? '❚❚ Dừng' : '▶ Tự chạy'}</button>
-        {!compact && <button className="tour-pill" onClick={fullscreen} aria-label="Toàn màn hình">⤢</button>}
+        {!compact && typeof document !== 'undefined' && !!document.documentElement.requestFullscreen && <button className="tour-pill" onClick={fullscreen} aria-label="Toàn màn hình">⤢</button>}
       </div>
 
       {ended && (

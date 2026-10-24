@@ -47,7 +47,9 @@ Hàm dùng chung: `hasModel3d(doc)` = có tầng có tường/phòng/mô hình h
 | API-80 (mở rộng) | `topScenes: [{ name, views }]` | | A, R |
 | API-60 (mở rộng) | thẻ mẫu nhà thêm `modes: ('3d' | 'tour')[]` | | công khai |
 
-Tệp: kind mới `tour_image`, `tour_clip` (migration 002: mở rộng CHECK nếu có; hiện `files.kind` là TEXT tự do → chỉ sửa type). Quyền đọc theo §6.2 như ảnh cover/gallery.
+Tệp: kind mới `tour_image`, `tour_clip`. `files.kind` có ràng buộc CHECK → **migration 002 dựng lại bảng `files`** (chép nguyên dữ liệu; không bảng nào có khoá ngoại tới `files`). Rollback `002_tour_files.down.sql` xoá dòng tệp tour nhưng **không** xoá tệp trên đĩa và không sửa tài liệu đang trỏ tới — chỉ rollback khi chưa có tour nào được dựng. Quyền đọc theo §6.2 như ảnh cover/gallery.
+
+Clip `tour_clip` (API-23): sau khi nhận, server kiểm hộp đầu `ftyp` + có `moov` (không thì 415), rồi đổi các hộp `udta`/`meta`/`uuid` thành `free` và ghi 0 nội dung (giữ kích thước → offset không đổi) — `apps/api/src/lib/mp4.ts`. Ảnh tour: một lần giải mã sharp, `limitInputPixels` 60 Mpx, giờ chụp từ EXIF DateTimeOriginal (0x9003) — `lib/exif.ts`.
 
 ## 4. Web
 
