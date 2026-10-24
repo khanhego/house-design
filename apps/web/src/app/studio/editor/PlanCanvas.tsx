@@ -87,6 +87,10 @@ export const PlanCanvas = ({ files, wallThickness, ortho, grid, onCalibrate, onM
   useEffect(() => {
     setView(null)
   }, [floorId])
+  // vừa chọn / đổi ảnh nền → căn lại khung nhìn để thấy cả ảnh
+  useEffect(() => {
+    if (under) setView(null)
+  }, [under?.url])
   useEffect(() => {
     if (!view && floor && (!floor.underlay || under || underErr)) fit()
   }, [view, floor, under, underErr, fit])
