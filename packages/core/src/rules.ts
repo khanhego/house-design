@@ -149,7 +149,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
 export interface Check {
   level: 'block' | 'warn'
   code:
-    | 'NO_FLOORS' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'MODEL_PROCESSING'
+    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'MODEL_PROCESSING'
     | 'MODEL_FAILED' | 'MODEL_NODE_MISSING' | 'BUDGET_BLOCK' | 'BUDGET_WARN' | 'NO_COVER'
     | 'FLOOR_NO_OUTLINE' | 'NO_DEFAULT_VIEWPOINT'
   message: string
@@ -168,13 +168,27 @@ const referencedModels = (doc: HouseDocument): string[] => {
   return [...ids]
 }
 
+/** Tầng có nội dung dựng (tường, phòng hoặc mô hình) — tầng rỗng không tính là 3D. */
+export const floorHasContent = (f: Floor) => f.walls.length > 0 || f.rooms.length > 0 || !!f.modelRef
+/** Mẫu nhà có phần xem 3D. */
+export const hasModel3d = (doc: HouseDocument) => doc.floors.some(floorHasContent) || !!doc.wholeModel
+/** Mẫu nhà có tour ảnh thật dùng được (≥ 2 cảnh). */
+export const hasTour = (doc: HouseDocument) => (doc.tour?.scenes.length ?? 0) >= 2
+
 export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => {
   const out: Check[] = []
-  if (!doc.floors.length) out.push({ level: 'block', code: 'NO_FLOORS', message: 'Mẫu nhà chưa có tầng nào' })
+  const tourScenes = doc.tour?.scenes ?? []
+  if (!hasModel3d(doc) && !tourScenes.length)
+    out.push({ level: 'block', code: 'NO_CONTENT', message: 'Mẫu nhà chưa có tầng dựng hoặc tour ảnh thật' })
+  if (tourScenes.length === 1) out.push({ level: 'block', code: 'TOUR_TOO_SHORT', message: 'Tour ảnh thật cần ít nhất 2 cảnh' })
+  tourScenes.slice(0, -1).forEach((sc, i) => {
+    if (!sc.next) out.push({ level: 'warn', code: 'TOUR_NO_NEXT', objectId: sc.id, message: `Cảnh ${i + 1} "${sc.title}" chưa đặt điểm đi tiếp` })
+  })
   if (doc.floors.length > MAX_FLOORS)
     out.push({ level: 'block', code: 'TOO_MANY_FLOORS', message: `Mẫu nhà có hơn ${MAX_FLOORS} tầng` })
 
-  for (const f of doc.floors) {
+  // tầng rỗng của mẫu nhà chỉ có tour ảnh thì bỏ qua kiểm dựng
+  for (const f of doc.floors.filter((x) => floorHasContent(x) || !tourScenes.length)) {
     if (!f.calibrated)
       out.push({ level: 'block', code: 'FLOOR_NOT_CALIBRATED', floorId: f.id, message: `${f.name} chưa hiệu chỉnh tỷ lệ` })
     for (const r of f.rooms) {
@@ -282,6 +296,11 @@ export const cloneDocument = (doc: HouseDocument): HouseDocument => {
     f.areas.forEach((a) => (a.id = newId('are')))
     f.items.forEach((it) => (it.id = newId('itm')))
   }
+  c.tour?.scenes.forEach((sc) => {
+    sc.id = newId('scn')
+    sc.floorId = m(sc.floorId)
+    sc.roomId = m(sc.roomId)
+  })
   c.viewpoints.forEach((v) => {
     v.id = newId('vpt')
     v.floorId = m(v.floorId)

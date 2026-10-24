@@ -23,7 +23,7 @@ export interface LeadInput {
   interest?: (typeof INTERESTS)[number] | null
   message?: string | null
   consent: boolean
-  context?: { floorId?: string; roomId?: string } | null
+  context?: { floorId?: string; roomId?: string; sceneId?: string } | null
   source?: 'link' | 'qr' | 'embed'
   deviceId?: string | null
 }
@@ -47,9 +47,14 @@ interface LeadRow {
 
 /** Tên tầng/phòng lấy từ bản đang phát hành (lưu cùng lead để CSV, E5 đọc được kể cả khi nhà đổi sau). */
 const contextNames = (ctx: Ctx, houseId: string | null, c: LeadInput['context']) => {
-  if (!houseId || !c?.floorId) return {}
+  if (!houseId || (!c?.floorId && !c?.sceneId)) return {}
   const house = ctx.repos.houses.get(houseId)
   const snap = house ? publishedSnapshot(ctx, house)?.snapshot : null
+  // đang xem tour ảnh thật: lưu tên cảnh (item 02, FR-12.11)
+  if (c.sceneId) {
+    const sc = snap?.document.tour?.scenes.find((x) => x.id === c.sceneId)
+    return { sceneId: c.sceneId, sceneName: sc?.title ?? null, floorName: null, roomName: sc ? `Ảnh thật · ${sc.title}` : null }
+  }
   const floor = snap ? sortedFloors(snap.document).find((f) => f.id === c.floorId) : undefined
   const room = floor?.rooms.find((r) => r.id === c.roomId)
   return { floorId: c.floorId, roomId: c.roomId, floorName: floor?.name ?? null, roomName: room?.name ?? null }
@@ -70,7 +75,7 @@ export const submitLead = (ctx: Ctx, input: LeadInput) => {
   if (!availability(client, project).available) throw new AppError(410, 'PROJECT_UNAVAILABLE', 'Nội dung này hiện không còn hiển thị.')
   const house = input.houseSlug ? ctx.repos.houses.bySlug(project.id, input.houseSlug) : undefined
   const houseId = house?.publishedVersionId ? house.id : null
-  const context = contextNames(ctx, houseId, input.context)
+  const context: { floorId?: string; sceneId?: string; floorName?: string | null; roomName?: string | null } = contextNames(ctx, houseId, input.context)
   const now = nowIso()
 
   const { id, merged, count } = ctx.db.tx(() => {
@@ -82,7 +87,7 @@ export const submitLead = (ctx: Ctx, input: LeadInput) => {
       ctx.db.run(
         `UPDATE leads SET contact_count = contact_count + 1, last_contact_at = ?, house_id = COALESCE(?, house_id), context_json = COALESCE(?, context_json),
          name = COALESCE(?, name), email = COALESCE(?, email), interest = COALESCE(?, interest), message = COALESCE(?, message), status = 'new' WHERE id = ?`,
-        now, houseId, context.floorId ? JSON.stringify(context) : null, input.name || null, input.email || null, input.interest ?? null, input.message || null, prev.id,
+        now, houseId, context.floorId || context.sceneId ? JSON.stringify(context) : null, input.name || null, input.email || null, input.interest ?? null, input.message || null, prev.id,
       )
       return { id: prev.id, merged: true, count: prev.contact_count + 1 }
     }

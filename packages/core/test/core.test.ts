@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cloneDocument, emptyDocument, floorFromRects, floorGrossArea, formatArea, HouseDocumentSchema,
   normalizePhoneVN, planSvg, roomArea, stripUnderlay, submitChecks, wallSegments, budgetForFloor,
-  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms,
+  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms, hasModel3d, hasTour,
 } from '../src/index.ts'
 import type { HouseDocument, ModelReport } from '../src/index.ts'
 
@@ -217,5 +217,36 @@ describe('lối đi — ROOM_UNREACHABLE', () => {
     const f3 = mk(false, true)
     expect(f3.walls.some((w) => w.a[0] === 5000 && w.b[0] === 5000)).toBe(false)
     expect(unreachableRooms(docOf(f3), f3)).toEqual([])
+  })
+})
+
+describe('tour ảnh thật (item 02)', () => {
+  const scene = (i: number, next = true) => ({ id: `scn_${i}`, fileId: `fil_${i}`, smallFileId: `fis_${i}`, title: `Cảnh ${i}`, highlights: [], ...(next ? { next: [0.5, 0.5] as [number, number] } : {}) })
+  const ctx = { models: {}, libraryModels: {} }
+  const base = (): HouseDocument => ({ ...emptyDocument(), coverFileId: 'fil_c' })
+  it('mẫu nhà chỉ có tour (tầng rỗng) gửi duyệt được; tầng rỗng không bị kiểm hiệu chỉnh', () => {
+    const d = { ...base(), tour: { autoplaySec: 4, scenes: [scene(1), scene(2, false)] } }
+    expect(HouseDocumentSchema.safeParse(d).success).toBe(true)
+    const codes = submitChecks(d, ctx).filter((c) => c.level === 'block').map((c) => c.code)
+    expect(codes).toEqual([])
+    expect(hasModel3d(d)).toBe(false)
+    expect(hasTour(d)).toBe(true)
+  })
+  it('không có tầng dựng và không có tour → chặn; tour 1 cảnh → chặn; thiếu điểm đi tiếp → cảnh báo', () => {
+    expect(submitChecks(base(), ctx).map((c) => c.code)).toContain('NO_CONTENT')
+    const one = { ...base(), tour: { autoplaySec: 4, scenes: [scene(1)] } }
+    expect(submitChecks(one, ctx).map((c) => c.code)).toContain('TOUR_TOO_SHORT')
+    const noNext = { ...base(), tour: { autoplaySec: 4, scenes: [scene(1, false), scene(2, false)] } }
+    const w = submitChecks(noNext, ctx).filter((c) => c.code === 'TOUR_NO_NEXT')
+    expect(w).toHaveLength(1)
+    expect(w[0].level).toBe('warn')
+  })
+  it('sao chép tài liệu đổi id cảnh và giữ liên kết phòng', () => {
+    const f = floorFromRects({ name: 'T1', order: 1, elevation: 0, rooms: [{ name: 'K', function: 'living', rect: [0, 0, 4000, 4000] }] })
+    const d = { ...base(), floors: [f], tour: { autoplaySec: 4, scenes: [{ ...scene(1), floorId: f.id, roomId: f.rooms[0].id }, scene(2)] } }
+    const c = cloneDocument(d)
+    expect(c.tour!.scenes[0].id).not.toBe('scn_1')
+    expect(c.tour!.scenes[0].floorId).toBe(c.floors[0].id)
+    expect(c.tour!.scenes[0].roomId).toBe(c.floors[0].rooms[0].id)
   })
 })

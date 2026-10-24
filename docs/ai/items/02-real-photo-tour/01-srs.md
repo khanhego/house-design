@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Item | `02-real-photo-tour` · lane feature · quy mô S |
-| Phiên bản | 0.1 — Draft, chờ G1 |
+| Phiên bản | 1.0 — Approved (G1 ✅ 2026-10-24 · khanhtt) · Q-1 = A + C (Phase 1), B ở Phase 2 |
 | Liên quan SRS hệ thống | CR-2 (`docs/ai/system/SRS.md` v0.4): thêm module **M12**, màn **V6**, **A7**; sửa FR-08.02 |
 | Nguồn | Yêu cầu user 2026-10-24 · video tham chiếu "NEW Era of 3D Websites is here!" (Marcin AI, youtu.be/lGFJ-jt4hhU) · demo `laquillaestate.lovable.app` (khảo sát 2026-10-24) · ảnh "prompt mẫu" user nhắc tới **chưa nhận được** (Q-5) |
 | Owner | khanhtt |
@@ -210,7 +210,7 @@ Trạng thái: đang tải (ảnh mờ + vòng tải) · ảnh kế chưa tải 
 
 | ID | Nội dung | Loại | Chặn G1? |
 |---|---|---|:---:|
-| Q-1 | **Công nghệ chuyển cảnh:** A mô phỏng · B tự gọi API AI tạo video · C tải clip tự tạo. Đề xuất A + C ở Phase 1, B ở Phase 2 sau khi chọn nhà cung cấp và mức phí | Câu hỏi | ✔ |
+| Q-1 | ~~Công nghệ chuyển cảnh~~ → **Đã chốt: A + C ở Phase 1, B ở Phase 2** (user 2026-10-24) | Đã đóng | — |
 | Q-2 | Mẫu nhà chỉ có tour (không có 3D) có bán như gói riêng, giá thấp hơn? Ảnh hưởng tên sản phẩm "Nhà mẫu online có bản vẽ" | Câu hỏi kinh doanh | ✘ (mặc định: cho phép, giá do kinh doanh quyết) |
 | Q-3 | Có cần chế độ "cuộn để đi" như demo (cuộn trang tua video), ngoài nút Tiếp? | Câu hỏi | ✘ (mặc định: không, có thể thêm sau) |
 | Q-4 | HEIC (ảnh iPhone) cần chuyển sang JPG ở server; nếu chưa làm kịp thì yêu cầu người chụp xuất JPG | Giả định | ✘ |
@@ -238,4 +238,4 @@ Trạng thái: đang tải (ảnh mờ + vòng tải) · ảnh kế chưa tải 
 - [x] NFR có con số (§8)
 - [x] Màn hình có phác thảo + trạng thái (§10)
 - [x] Kịch bản chụp cho người dùng (§11)
-- [ ] **Q-1 công nghệ chuyển cảnh — chờ user chốt**
+- [x] Q-1 công nghệ chuyển cảnh: **A (mô phỏng) + C (clip tải lên)** ở Phase 1; B (API AI) ở Phase 2 — user chốt 2026-10-24

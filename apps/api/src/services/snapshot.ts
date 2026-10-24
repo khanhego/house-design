@@ -6,7 +6,7 @@ import { fileUrl } from '../repos/types.ts'
 import type { House } from '../repos/types.ts'
 import type { Ctx } from '../context.ts'
 
-const PUBLIC_KINDS = new Set(['cover', 'gallery_image', 'library_image', 'item_image', 'model_optimized'])
+const PUBLIC_KINDS = new Set(['cover', 'gallery_image', 'library_image', 'item_image', 'model_optimized', 'tour_image', 'tour_clip'])
 
 /** JSON chuẩn hoá (khoá sắp xếp) để băm. */
 export const canonicalJson = (v: unknown): string => {
@@ -54,6 +54,8 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
   if (document.coverFileId) fileIds.add(document.coverFileId)
   document.gallery.forEach((id) => fileIds.add(id))
   for (const f of document.floors) for (const it of f.items) it.info?.imageFileIds?.forEach((id) => fileIds.add(id))
+  // tour ảnh thật: ảnh 2 cỡ + clip chuyển cảnh
+  for (const sc of document.tour?.scenes ?? []) [sc.fileId, sc.smallFileId, sc.clipFileId].forEach((id) => id && fileIds.add(id))
 
   const lib = ctx.repos.library.byIds(libraryItemIds(document))
   for (const it of lib.values()) it.imageFileIds.forEach((id) => fileIds.add(id))

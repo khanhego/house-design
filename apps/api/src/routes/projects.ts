@@ -1,3 +1,5 @@
+import sharp from 'sharp'
+import { Readable } from 'node:stream'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { cloneDocument, emptyDocument, HOUSE_TYPES, HouseDocumentSchema } from '@hd/core'
@@ -19,7 +21,7 @@ const optText = (max: number) => z.string().trim().max(max).nullable().optional(
 
 const MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf',
-  glb: 'model/gltf-binary', gltf: 'model/gltf+json', dxf: 'image/vnd.dxf',
+  glb: 'model/gltf-binary', gltf: 'model/gltf+json', dxf: 'image/vnd.dxf', mp4: 'video/mp4',
 }
 const ALLOWED: Record<string, string[]> = {
   input: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'glb', 'gltf', 'dxf'],
@@ -29,8 +31,20 @@ const ALLOWED: Record<string, string[]> = {
   library_image: ['jpg', 'jpeg', 'png', 'webp'],
   item_image: ['jpg', 'jpeg', 'png', 'webp'],
   evidence: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+  tour_clip: ['mp4'],
   model_original: ['glb', 'gltf'],
 }
+
+const TOUR_IMAGE_MAX = 25 * 2 ** 20
+
+/** Thời điểm chụp từ EXIF (YYYY:MM:DD HH:MM:SS → ISO, không múi giờ) — để xếp thứ tự ảnh khi tên tệp không có số (EX-T2). */
+const exifDate = (exif?: Buffer) => {
+  const m = exif?.toString('latin1').match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/)
+  return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null
+}
+
+/** Giới hạn dung lượng riêng theo loại tệp (mặc định MAX_UPLOAD_BYTES). */
+const KIND_LIMIT: Partial<Record<FileKind, number>> = { tour_clip: 20 * 2 ** 20 }
 
 /** Nhận một tệp multipart, lưu vào storage, tạo bản ghi files. Trường form phải gửi trước tệp. */
 export const receiveFile = async (ctx: Ctx, req: FastifyRequest, user: AuthUser, opts: { kind?: FileKind; projectId?: string | null; kinds?: FileKind[] }) => {
@@ -40,6 +54,7 @@ export const receiveFile = async (ctx: Ctx, req: FastifyRequest, user: AuthUser,
   const kind = (opts.kind ?? fields.kind) as FileKind
   if (!kind || !(opts.kinds ?? Object.keys(ALLOWED)).includes(kind) || !ALLOWED[kind]) throw validation({ kind: 'Loại tệp không hợp lệ' })
   const ext = (part.filename.split('.').pop() ?? '').toLowerCase()
+  const limit = KIND_LIMIT[kind] ?? MAX_UPLOAD_BYTES
   if (!ALLOWED[kind].includes(ext)) {
     part.file.resume()
     throw new AppError(415, 'UNSUPPORTED_FILE', `Không nhận tệp .${ext} cho mục này`)
@@ -48,14 +63,14 @@ export const receiveFile = async (ctx: Ctx, req: FastifyRequest, user: AuthUser,
   const key = ctx.storage.newKey(kind, part.filename)
   let bytes = 0
   try {
-    bytes = await ctx.storage.putStream(key, part.file, MAX_UPLOAD_BYTES)
+    bytes = await ctx.storage.putStream(key, part.file, limit)
   } catch (e) {
-    if (e instanceof FileTooLargeError || part.file.truncated) throw new AppError(413, 'FILE_TOO_LARGE', `Tệp ${part.filename} vượt 200 MB`)
+    if (e instanceof FileTooLargeError || part.file.truncated) throw new AppError(413, 'FILE_TOO_LARGE', `Tệp ${part.filename} vượt ${Math.round(limit / 2 ** 20)} MB`)
     throw e
   }
   if (part.file.truncated) {
     await ctx.storage.remove(key)
-    throw new AppError(413, 'FILE_TOO_LARGE', `Tệp ${part.filename} vượt 200 MB`)
+    throw new AppError(413, 'FILE_TOO_LARGE', `Tệp ${part.filename} vượt ${Math.round(limit / 2 ** 20)} MB`)
   }
   return ctx.repos.files.create({ projectId, kind, originalName: part.filename, mime: MIME[ext] ?? part.mimetype, bytes, storageKey: key, uploadedBy: user.id })
 }
@@ -98,9 +113,17 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
   // loại tệp hợp lệ theo vị trí (R-G3-06): ảnh nền chỉ là tài liệu đầu vào, còn lại là ảnh công khai được
   const fileKinds = new Map<string, FileKind[]>()
   const want = (id: string, kinds: FileKind[]) => fileKinds.set(id, kinds)
-  if (doc.coverFileId) want(doc.coverFileId, ['cover'])
+  if (doc.coverFileId) want(doc.coverFileId, ['cover', 'tour_image'])
   doc.gallery.forEach((id) => want(id, ['gallery_image', 'cover']))
   const fileIds = new Set<string>([...(doc.coverFileId ? [doc.coverFileId] : []), ...doc.gallery])
+  // tour ảnh thật: ảnh tour, clip tour, tầng/phòng liên kết
+  doc.tour?.scenes.forEach((sc, i) => {
+    for (const id of [sc.fileId, sc.smallFileId]) (fileIds.add(id), want(id, ['tour_image']))
+    if (sc.clipFileId) (fileIds.add(sc.clipFileId), want(sc.clipFileId, ['tour_clip']))
+    const fl = sc.floorId ? doc.floors.find((f) => f.id === sc.floorId) : undefined
+    if (sc.floorId && !fl) errs[`tour.scenes.${i}.floorId`] = 'Tầng liên kết không tồn tại'
+    if (sc.roomId && !fl?.rooms.some((r) => r.id === sc.roomId)) errs[`tour.scenes.${i}.roomId`] = 'Phòng liên kết không tồn tại'
+  })
   const libIds = new Set<string>()
   doc.floors.forEach((f, fi) => {
     const walls = new Set(f.walls.map((w) => w.id))
@@ -255,8 +278,8 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
 
   app.post('/api/v1/files', async (req, reply) => {
     const u = requireUser(ctx, req, ['admin', 'producer'])
-    const f = await receiveFile(ctx, req, u, { kinds: ['logo', 'cover', 'gallery_image', 'library_image', 'item_image', 'evidence'] })
-    const needsProject = ['cover', 'gallery_image', 'item_image', 'evidence'].includes(f.kind)
+    const f = await receiveFile(ctx, req, u, { kinds: ['logo', 'cover', 'gallery_image', 'library_image', 'item_image', 'evidence', 'tour_clip'] })
+    const needsProject = ['cover', 'gallery_image', 'item_image', 'evidence', 'tour_clip'].includes(f.kind)
     const bad = (msg: string) => {
       void ctx.storage.remove(f.storageKey)
       ctx.db.run('DELETE FROM files WHERE id = ?', f.id)
@@ -273,6 +296,52 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
       }
     } else if (f.projectId) ctx.db.run('UPDATE files SET project_id = NULL WHERE id = ?', f.id)
     return reply.status(201).send({ file: fileOut(ctx.repos.files.get(f.id)!) })
+  })
+
+  /* ---------- ảnh tour (API-24, item 02): xoay theo EXIF, 2 cỡ WebP, xoá metadata, không giữ ảnh gốc (BR-T5) ---------- */
+  app.post<{ Params: { id: string } }>('/api/v1/projects/:id/tour-images', async (req, reply) => {
+    const u = requireUser(ctx, req, ['admin', 'producer'])
+    const project = assertProject(ctx, u, req.params.id)
+    const part = await req.file({ limits: { fileSize: TOUR_IMAGE_MAX } })
+    if (!part) throw validation({ file: 'Chưa chọn tệp' })
+    const ext = (part.filename.split('.').pop() ?? '').toLowerCase()
+    if (ext === 'heic' || ext === 'heif') {
+      part.file.resume()
+      throw new AppError(415, 'UNSUPPORTED_FILE', 'Ảnh HEIC chưa hỗ trợ — xuất ảnh dạng JPG rồi tải lại')
+    }
+    if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+      part.file.resume()
+      throw new AppError(415, 'UNSUPPORTED_FILE', `Không nhận tệp .${ext} cho ảnh tour (JPG, PNG, WebP)`)
+    }
+    let buf: Buffer
+    try {
+      buf = await part.toBuffer()
+    } catch {
+      throw new AppError(413, 'FILE_TOO_LARGE', `Ảnh ${part.filename} vượt ${TOUR_IMAGE_MAX / 2 ** 20} MB`)
+    }
+    let takenAt: string | null = null
+    try {
+      takenAt = exifDate((await sharp(buf).metadata()).exif)
+    } catch {
+      throw new AppError(415, 'UNSUPPORTED_FILE', `Không đọc được ảnh ${part.filename}`)
+    }
+    const base = part.filename.replace(/\.[^.]+$/, '').slice(0, 120)
+    const make = (size: number, quality: number) =>
+      sharp(buf).rotate().resize(size, size, { fit: 'inside', withoutEnlargement: true }).webp({ quality }).toBuffer({ resolveWithObject: true })
+    const [big, small] = await Promise.all([make(2560, 82), make(1280, 78)])
+    const save = async (data: Buffer, name: string) => {
+      const key = ctx.storage.newKey('tour_image', name)
+      await ctx.storage.putStream(key, Readable.from([data]), data.length + 1)
+      return ctx.repos.files.create({ projectId: project.id, kind: 'tour_image', originalName: name, mime: 'image/webp', bytes: data.length, storageKey: key, uploadedBy: u.id })
+    }
+    const fi = await save(big.data, `${base}.webp`)
+    const fs = await save(small.data, `${base}-1280.webp`)
+    return reply.status(201).send({
+      image: { id: fi.id, url: fileUrl(fi.storageKey), width: big.info.width, height: big.info.height },
+      small: { id: fs.id, url: fileUrl(fs.storageKey) },
+      takenAt,
+      originalName: part.filename,
+    })
   })
 
   /* ---------- mẫu nhà ---------- */

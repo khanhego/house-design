@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Phiên bản | 0.4 — CR-2 (Draft, chờ duyệt): thêm M12 Tham quan ảnh thật (item 02) · 0.3 — CR-1: thêm màn V5 Chính sách dữ liệu (NFR-04) |
+| Phiên bản | 0.4 — CR-2 (duyệt 2026-10-24): thêm M12 Tham quan ảnh thật (item 02) · 0.3 — CR-1: thêm màn V5 Chính sách dữ liệu (NFR-04) |
 | Trạng thái | Approved (G1 ✅ 2026-10-24 · khanhtt) |
 | Owner (PO) | khanhtt |
 | Reviewer | khanhtt (quy mô S — tự soát) |
@@ -350,7 +350,7 @@ flowchart TD
 | FR-11.02 | Hệ thống phải hiện báo cáo theo dự án và khoảng ngày: lượt xem, người xem duy nhất, thời gian xem trung bình, top mẫu nhà, top phòng, top đồ, số lead, tỉ lệ lead/lượt xem, theo nguồn truy cập, theo loại thiết bị | M | 1 | P5 |
 | FR-11.03 | Hệ thống phải cho tải báo cáo dạng CSV | S | 1 | P5 |
 
-### 5.12 M12 — Tham quan ảnh thật *(CR-2, item 02 — chờ G1)*
+### 5.12 M12 — Tham quan ảnh thật *(CR-2, item 02)*
 
 Chế độ xem thứ hai của mẫu nhà: chuỗi ảnh chụp nhà thật theo đường đi, người xem bấm Tiếp để chuyển cảnh. Đặc tả đầy đủ (FR-12.01–12.15, BR-T1–T5, NFR-T1–T4, kịch bản chụp) ở `items/02-real-photo-tour/01-srs.md`.
 
@@ -1005,7 +1005,7 @@ Mobile 360 px
 | DEC-10 | Bản vẽ theo phase | P1: mặt bằng cơ bản có kích thước + PDF; P2: đủ bộ (trần, điện, TCVN, DXF, đính kèm) | User chọn | khanhtt | 2026-10-24 |
 | DEC-11 | Bổ sung Phase 1 | Thương hiệu + nhúng/QR · lead · thống kê · CĐT duyệt trước phát hành | User chọn | khanhtt | 2026-10-24 |
 | CR-1 | Review G2 (R-25) | Thêm V5 + trường chính sách dữ liệu của dự án | NFR-04 cần trang chính sách cụ thể | Agent (DEC-16) | 2026-10-24 |
-| CR-2 | Yêu cầu user 2026-10-24 | Thêm M12 Tham quan ảnh thật, V6, A7; sửa FR-08.02, FR-06.01 (item 02) | Mở phân khúc nhà đã xây (không cần dựng 3D) | khanhtt — chờ duyệt | 2026-10-24 |
+| CR-2 | Yêu cầu user 2026-10-24 | Thêm M12 Tham quan ảnh thật, V6, A7; sửa FR-08.02, FR-06.01 (item 02) | Mở phân khúc nhà đã xây (không cần dựng 3D) | khanhtt — duyệt 2026-10-24 | 2026-10-24 |
 | DEC-12…15 | UX | Form lead dạng ngăn kéo · chip tầng trên mobile · thanh liên hệ cố định đáy mobile · phác thảo ASCII | Xem §10.5 | UX (agent), chờ user | 2026-10-24 |
 
 ## Chốt G1

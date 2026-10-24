@@ -51,7 +51,7 @@ export const render = (template: Template, d: Record<string, any>, base: string)
       const lines = [
         `Dự án: ${d.projectName}`,
         d.houseName ? `Mẫu nhà: ${d.houseName}` : '',
-        d.roomName ? `Đang xem: ${d.floorName ?? ''} · ${d.roomName}` : '',
+        d.roomName ? `Đang xem: ${[d.floorName, d.roomName].filter(Boolean).join(' · ')}` : '',
         d.interest ? `Quan tâm: ${d.interest}` : '',
         d.message ? `Lời nhắn: ${d.message}` : '',
       ].filter(Boolean)

@@ -28,12 +28,13 @@ export const INTERESTS = ['live', 'invest', 'interior', 'other'] as const
 export const PLANS = ['unit', 'project', 'library'] as const
 export const FILE_KINDS = [
   'input', 'logo', 'cover', 'gallery_image', 'library_image', 'item_image',
-  'model_original', 'model_optimized', 'evidence',
+  'model_original', 'model_optimized', 'evidence', 'tour_image', 'tour_clip',
 ] as const
 export const VERSION_STATES = ['draft', 'pending_review', 'approved', 'published', 'superseded', 'unpublished'] as const
 export const EVENT_TYPES = [
   'project_open', 'house_open', 'floor_select', 'room_select', 'walk_mode', 'item_open',
   'plan_open', 'pdf_download', 'contact_click', 'lead_submit', 'fallback_shown',
+  'tour_open', 'tour_scene', 'tour_complete',
 ] as const
 
 export type RoomFunction = (typeof ROOM_FUNCTIONS)[number]
@@ -157,6 +158,27 @@ export const ViewpointSchema = z.object({
   isDefault: z.boolean(),
 })
 
+/* Tham quan ảnh thật (item 02, FR-12.*) */
+export const MAX_TOUR_SCENES = 60
+const unit = z.number().finite().min(0).max(1)
+export const TourSceneSchema = z.object({
+  id,
+  fileId: id,
+  smallFileId: id,
+  title: z.string().trim().min(1).max(80),
+  description: z.string().max(300).optional(),
+  highlights: z.array(z.string().trim().min(1).max(60)).max(3),
+  next: z.tuple([unit, unit]).optional(),
+  floorId: id.optional(),
+  roomId: id.optional(),
+  clipFileId: id.optional(),
+  clipSource: z.enum(['upload', 'ai']).optional(),
+})
+export const TourSchema = z.object({
+  autoplaySec: z.number().int().min(2).max(15),
+  scenes: z.array(TourSceneSchema).max(MAX_TOUR_SCENES),
+})
+
 export const HouseDocumentSchema = z.object({
   schemaVersion: z.literal(1),
   floors: z.array(FloorSchema).max(MAX_FLOORS),
@@ -166,6 +188,7 @@ export const HouseDocumentSchema = z.object({
   lighting: z.object({ night: z.boolean() }),
   coverFileId: id.optional(),
   gallery: z.array(id).max(MAX_GALLERY),
+  tour: TourSchema.optional(),
 })
 
 export type Wall = z.infer<typeof WallSchema>
@@ -180,6 +203,8 @@ export type Underlay = z.infer<typeof UnderlaySchema>
 export type Floor = z.infer<typeof FloorSchema>
 export type Viewpoint = z.infer<typeof ViewpointSchema>
 export type HouseDocument = z.infer<typeof HouseDocumentSchema>
+export type TourScene = z.infer<typeof TourSceneSchema>
+export type Tour = z.infer<typeof TourSchema>
 
 /* ---------- Dữ liệu đã giải sẵn (snapshot) và payload công khai ---------- */
 
@@ -286,6 +311,8 @@ export interface PublicHouseCard {
   bathrooms: number
   floors: number
   coverUrl: string | null
+  /** chế độ xem có trong bản phát hành (FR-06.01, CR-2) */
+  modes: ('3d' | 'tour')[]
 }
 
 export interface PublicProjectPayload {

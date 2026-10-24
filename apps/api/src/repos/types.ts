@@ -139,7 +139,7 @@ export interface LibraryItem {
 
 export type FileKind =
   | 'input' | 'logo' | 'cover' | 'gallery_image' | 'library_image' | 'item_image'
-  | 'model_original' | 'model_optimized' | 'evidence'
+  | 'model_original' | 'model_optimized' | 'evidence' | 'tour_image' | 'tour_clip'
 
 export interface FileRow {
   id: string

@@ -10,7 +10,7 @@ import { publishedSnapshot } from './public.ts'
 
 /* Sự kiện xem & thống kê (02 API-63, 80, 81; 02a §4.2; BR-10). */
 
-export const EVENT_TYPES = ['project_open', 'house_open', 'floor_select', 'room_select', 'walk_mode', 'item_open', 'plan_open', 'pdf_download', 'contact_click', 'lead_submit', 'fallback_shown'] as const
+export const EVENT_TYPES = ['project_open', 'house_open', 'floor_select', 'room_select', 'walk_mode', 'item_open', 'plan_open', 'pdf_download', 'contact_click', 'lead_submit', 'fallback_shown', 'tour_open', 'tour_scene', 'tour_complete'] as const
 export const DEVICE_CLASSES = ['mobile', 'desktop', 'fallback'] as const
 const SOURCES = ['link', 'qr', 'embed'] as const
 const DAY = 86_400_000
@@ -136,6 +136,14 @@ export const stats = (ctx: Ctx, user: AuthUser, q: StatsQuery) => {
     return { name: name ?? '—', opens: x.n }
   })
 
+  // cảnh tour được xem nhiều (item 02)
+  const topScenes = all<{ house_id: string; target_id: string; n: number }>(
+    `SELECT house_id, target_id, COUNT(DISTINCT session_id) n FROM view_events WHERE ${base} AND type = 'tour_scene' AND house_id IS NOT NULL AND target_id IS NOT NULL GROUP BY house_id, target_id ORDER BY n DESC LIMIT 10`,
+  ).map((x) => {
+    const sc = snapOf(ctx, x.house_id)?.document.tour?.scenes.find((s) => s.id === x.target_id)
+    return { houseName: ctx.repos.houses.get(x.house_id)?.name ?? '—', name: sc?.title ?? '—', views: x.n }
+  })
+
   const bySession = (col: 'source' | 'device_class') => Object.fromEntries(all<{ k: string; n: number }>(
     `SELECT ${col} k, COUNT(DISTINCT session_id) n FROM view_events WHERE ${base} GROUP BY ${col}`,
   ).map((x) => [x.k, x.n]))
@@ -145,6 +153,6 @@ export const stats = (ctx: Ctx, user: AuthUser, q: StatsQuery) => {
   return {
     range: { from: r.from, to: r.to },
     totals: { views, uniqueViewers, avgDurationSec: Math.round(avg ?? 0), leads, leadRate: views ? Math.round((leads / views) * 1000) / 1000 : 0 },
-    daily, topHouses, topRooms, topItems, bySource, byDevice, generatedAt: nowIso(),
+    daily, topHouses, topRooms, topItems, topScenes, bySource, byDevice, generatedAt: nowIso(),
   }
 }

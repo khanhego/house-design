@@ -23,7 +23,7 @@ const LeadBody = z.object({
   interest: z.enum(INTERESTS).nullable().optional(),
   message: z.string().trim().max(1000).nullable().optional(),
   consent: z.boolean(),
-  context: z.object({ floorId: id.optional(), roomId: id.optional() }).nullable().optional(),
+  context: z.object({ floorId: id.optional(), roomId: id.optional(), sceneId: id.optional() }).nullable().optional(),
   source: z.enum(['link', 'qr', 'embed']).optional(),
   deviceId: z.string().max(64).nullable().optional(),
   website: z.string().max(500).optional(),
