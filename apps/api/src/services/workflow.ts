@@ -6,6 +6,7 @@ import type { Ctx } from '../context.ts'
 import type { AuthUser } from './access.ts'
 import { buildSnapshot, checkContext } from './snapshot.ts'
 import { enqueueEmail } from './mail.ts'
+import { businessDaysBetween } from '../lib/time.ts'
 
 /** Workflow phiên bản (SRS §7, 02 §5.4, 02a §4 API-50…55). Mọi chuyển trạng thái có điều kiện trong transaction. */
 
@@ -134,4 +135,21 @@ export const newVersion = (ctx: Ctx, houseId: string) => {
   } catch {
     throw new AppError(409, 'DRAFT_EXISTS', 'Mẫu nhà đang có phiên bản chưa phát hành')
   }
+}
+
+/** E4 (02a §7 `review.remind`): submission đang chờ duyệt ≥ 5 ngày làm việc, chưa nhắc → gửi E4 cho người duyệt, đánh dấu đã nhắc. */
+export const remindDue = (ctx: Ctx, now = new Date()) => {
+  let sent = 0
+  for (const s of ctx.repos.submissions.pendingUnreminded()) {
+    if (businessDaysBetween(new Date(s.submittedAt), now) < 5) continue
+    const v = ctx.repos.versions.get(s.versionId)!
+    const house = ctx.repos.houses.get(v.houseId)!
+    const project = ctx.repos.projects.get(house.projectId)!
+    for (const a of ctx.repos.users.activeApprovers(project.clientId)) {
+      enqueueEmail(ctx, a.email, 'E4', { name: a.name, houseName: house.name, versionNumber: v.number, versionId: v.id, projectName: project.name })
+    }
+    ctx.repos.submissions.markReminded(s.id)
+    sent++
+  }
+  return sent
 }

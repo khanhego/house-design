@@ -343,6 +343,9 @@ export const submissions = (db: Db) => ({
   },
   withdraw: (id: string, userId: string) => db.run('UPDATE submissions SET withdrawn_at=?, withdrawn_by=? WHERE id=?', nowIso(), userId, id),
   markReminded: (id: string) => db.run('UPDATE submissions SET reminded_at=? WHERE id=?', nowIso(), id),
+  /** Submission hiện tại của các version đang chờ duyệt, chưa nhắc. */
+  pendingUnreminded: () =>
+    db.all("SELECT s.* FROM submissions s JOIN versions v ON v.current_submission_id = s.id WHERE v.state = 'pending_review' AND s.reminded_at IS NULL AND s.withdrawn_at IS NULL").map(toSubmission),
 })
 
 const toReview = (r: Row): Review => ({
