@@ -46,7 +46,7 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T-15 | A1 khách hàng & tài khoản | fe | FR-01.01, 01.04 | 02b F8 | T-14 | 0,5 | ✅ |
 | T-16 | A2 dự án (thông tin, tài liệu, mẫu nhà, sao chép, chia sẻ) | fe | FR-01.02, 02.*, 03.01, 03.09, 09.02–03 | 02b F9 (+ tab Chia sẻ F15) | T-14, T-12 | 1 | ✅ |
 | T-17 | A4 thư viện đồ | fe | FR-05.01 | 02b F10 | T-14, T-13 | 0,5 | ✅ |
-| T-18 | A3 trình dựng: store, autosave, canvas, tầng, công cụ khung, hiệu chỉnh, bắt điểm, undo | fe | FR-03.02–03.08 | 02b F11 | T-16, T-12 | 3 | ⬜ |
+| T-18 | A3 trình dựng: store, autosave, canvas, tầng, công cụ khung, hiệu chỉnh, bắt điểm, undo | fe | FR-03.02–03.08 | 02b F11 | T-16, T-12 | 3 | ✅ |
 | T-19 | **Spike GLB** + model upload + worker optimize + report | be | FR-04.01–04.03 | 02a B6 | T-12 | 1,5 | ✅ |
 | T-20 | A3 tab Mô hình | fe | FR-04.01–04.03 | 02b F12 | T-18, T-19 (spike đạt) | 1 | ⬜ |
 | T-21 | A3 tab Đồ, Điểm nhìn & ảnh, thanh kiểm | fe | FR-04.05–04.07, 05.02–05.04 | 02b F13 | T-20, T-17 | 1,5 | ⬜ |

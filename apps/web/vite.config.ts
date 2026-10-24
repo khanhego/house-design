@@ -27,6 +27,13 @@ export default defineConfig({
       '/files': 'http://localhost:8787',
     },
   },
+  // tối ưu sẵn mọi dependency lúc khởi động — tránh Vite gói muộn tạo bản React thứ hai (lỗi hook null ở dev)
+  optimizeDeps: {
+    include: [
+      'react', 'react-dom', 'react-dom/client', 'react-router', '@tanstack/react-query', 'zustand', 'three',
+      '@react-three/fiber', '@react-three/drei', 'qrcode', 'jspdf', 'svg2pdf.js', 'pdfjs-dist',
+    ],
+  },
   build: {
     rollupOptions: {
       input: {
