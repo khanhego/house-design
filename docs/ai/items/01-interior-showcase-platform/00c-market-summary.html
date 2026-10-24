@@ -1,0 +1,322 @@
+<title>Nhà mẫu online có bản vẽ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: một cột như tờ bản vẽ — khung tên ở đầu, ma trận tính năng là trọng tâm, lưới mờ kiểu giấy kỹ thuật */
+:root {
+  --paper: #f7f8fa;
+  --sheet: #ffffff;
+  --ink: #17202e;
+  --muted: #5b6676;
+  --rule: #d9dee6;
+  --grid: rgba(31, 79, 163, 0.05);
+  --blue: #1f4fa3;
+  --blue-soft: #e6edf9;
+  --gap: #b4580f;
+  --gap-soft: #fbeedd;
+  --part: #6b5bb5;
+  --part-soft: #eeebf9;
+  --have: #2f7a4f;
+  --have-soft: #e3f2e9;
+  --f-display: "Be Vietnam Pro", "IBM Plex Sans", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141c; --sheet: #151c27; --ink: #e6ebf2; --muted: #9aa6b6; --rule: #2a3442;
+    --grid: rgba(120, 160, 230, 0.06); --blue: #8fb3ff; --blue-soft: #1c2a44;
+    --gap: #f0a35e; --gap-soft: #3a2614; --part: #b3a6f0; --part-soft: #2a2545;
+    --have: #6fcf97; --have-soft: #16301f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141c; --sheet: #151c27; --ink: #e6ebf2; --muted: #9aa6b6; --rule: #2a3442;
+  --grid: rgba(120, 160, 230, 0.06); --blue: #8fb3ff; --blue-soft: #1c2a44;
+  --gap: #f0a35e; --gap-soft: #3a2614; --part: #b3a6f0; --part-soft: #2a2545;
+  --have: #6fcf97; --have-soft: #16301f; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 15.5px/1.6 var(--f-body);
+}
+.wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 40px;
+}
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.15; }
+h2 { font-size: 22px; line-height: 1.25; }
+p { margin: 0; }
+.label {
+  font: 500 11.5px/1.3 var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* Khung tên */
+.titleblock {
+  background: var(--sheet);
+  border: 1.5px solid var(--ink);
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
+.tb-main { padding: 24px; display: grid; gap: 12px; border-right: 1.5px solid var(--ink); min-width: 0; }
+.tb-main p { color: var(--muted); max-width: 62ch; }
+.tb-cells { display: grid; grid-template-columns: repeat(2, minmax(120px, auto)); }
+.tb-cell { padding: 10px 14px; border-bottom: 1px solid var(--rule); border-left: 1px solid var(--rule); display: grid; gap: 2px; }
+.tb-cell:nth-child(odd) { border-left: 0; }
+.tb-cell:nth-last-child(-n+2) { border-bottom: 0; }
+.tb-cell b { font-weight: 600; font-size: 14px; }
+.status { color: var(--gap); }
+
+/* Kết luận */
+.verdict {
+  border-left: 4px solid var(--blue);
+  background: var(--blue-soft);
+  padding: 18px 22px;
+  display: grid;
+  gap: 8px;
+}
+.verdict p { max-width: 75ch; }
+.verdict strong { color: var(--ink); }
+
+section { display: grid; gap: 16px; }
+.section-head { display: grid; gap: 4px; }
+.section-head p { color: var(--muted); max-width: 70ch; }
+
+/* Số liệu thị trường */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.fact { background: var(--sheet); padding: 16px; display: grid; gap: 6px; align-content: start; }
+.fact .big { font: 600 22px/1.15 var(--f-display); color: var(--blue); }
+.fact p { font-size: 13.5px; color: var(--muted); }
+
+/* Ma trận */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filters button {
+  font: 500 13.5px/1 var(--f-body);
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+.filters button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--sheet); }
+.filters button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.filters .count { font-family: var(--f-mono); font-size: 12px; opacity: 0.75; }
+.table-box { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--rule); }
+th { font: 500 11.5px/1.3 var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: var(--paper); }
+tr:last-child td { border-bottom: 0; }
+td.id { font-family: var(--f-mono); color: var(--muted); white-space: nowrap; }
+td.feat { font-weight: 500; }
+td.who { color: var(--muted); }
+tr.is-gap td.feat { color: var(--gap); }
+.pill {
+  display: inline-block;
+  font: 500 12px/1 var(--f-body);
+  padding: 5px 9px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.p-have { background: var(--have-soft); color: var(--have); }
+.p-part { background: var(--part-soft); color: var(--part); }
+.p-none { background: var(--gap-soft); color: var(--gap); }
+.p-na { color: var(--muted); }
+.note { font-size: 13.5px; color: var(--muted); max-width: 75ch; }
+
+/* Khoảng trống */
+.gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.gap-item { background: var(--sheet); border: 1px solid var(--rule); border-top: 3px solid var(--gap); padding: 16px; display: grid; gap: 6px; align-content: start; }
+.gap-item h3 { font-size: 16px; line-height: 1.35; }
+.gap-item p { font-size: 13.5px; color: var(--muted); }
+
+/* Đề xuất + giá */
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.card { background: var(--sheet); border: 1px solid var(--rule); padding: 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card blockquote { margin: 0; font: 600 19px/1.35 var(--f-display); color: var(--blue); }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.prices { display: grid; }
+.price-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px dashed var(--rule); }
+.price-row:last-child { border-bottom: 0; }
+.price-row span:last-child { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 500; }
+
+ol.risks { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: r; }
+ol.risks li { counter-increment: r; display: grid; grid-template-columns: 34px 1fr; gap: 10px; background: var(--sheet); border: 1px solid var(--rule); padding: 12px 14px; }
+ol.risks li::before { content: "RK" counter(r); font: 500 12px/1.6 var(--f-mono); color: var(--gap); }
+
+footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 16px; }
+
+@media (max-width: 640px) {
+  .titleblock { grid-template-columns: 1fr; }
+  .tb-main { border-right: 0; border-bottom: 1.5px solid var(--ink); }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="titleblock">
+    <div class="tb-main">
+      <span class="label">Market research · bản tóm gọn</span>
+      <h1>Nhà mẫu online có bản vẽ</h1>
+      <p>Đánh giá thị trường cho dịch vụ chuyển tài liệu quảng cáo nhà (phối cảnh, mặt bằng, file CAD/SketchUp) thành link xem 3D tương tác kèm bản vẽ kỹ thuật, bán cho chủ đầu tư, công ty xây nhà trọn gói và công ty thiết kế–thi công nội thất.</p>
+    </div>
+    <div class="tb-cells">
+      <div class="tb-cell"><span class="label">Hạng mục</span><b>00c</b></div>
+      <div class="tb-cell"><span class="label">Phiên bản</span><b class="num">0.2</b></div>
+      <div class="tb-cell"><span class="label">Ngày</span><b class="num">24.10.2026</b></div>
+      <div class="tb-cell"><span class="label">Người lập</span><b>PO · khanhtt</b></div>
+      <div class="tb-cell"><span class="label">Trạng thái</span><b class="status">Chờ chốt</b></div>
+      <div class="tb-cell"><span class="label">Bản đầy đủ</span><b>00b</b></div>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <span class="label">Kết luận</span>
+    <p>Bên bán nhà ở Việt Nam <strong>đã trả tiền</strong> cho phối cảnh, phim, VR360 và nhà mẫu, nhưng đối thủ trong nước dừng ở <strong>panorama có hotspot</strong>. Chưa tìm thấy ai giao trong cùng một link: 3D đi lại tự do, bấm vào đồ xem chi tiết và <strong>bản vẽ kỹ thuật có kích thước</strong> sinh từ cùng mô hình.</p>
+    <p class="note">Toàn bộ là nghiên cứu tại bàn ngày 24/10/2026, chưa phỏng vấn khách thật. "Không tìm thấy" là kết quả tìm kiếm, chưa phải bằng chứng thị trường trống.</p>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <span class="label">01 · Thị trường</span>
+      <h2>Tiền đang chi ở đâu</h2>
+    </div>
+    <div class="facts">
+      <div class="fact"><span class="big num">~2 tỷ ₫</span><p>Một căn hộ mẫu thật (2017). Biệt thự mẫu 5–7 tỷ ₫.</p></div>
+      <div class="fact"><span class="big num">~400 tỷ ₫</span><p>Masterise chi cho Grand Marina Gallery (VnExpress, 9/2026).</p></div>
+      <div class="fact"><span class="big num">10–45 tr ₫</span><p>Gói VR360 trong nước. Dựng model nhà mẫu khoảng 10 tr ₫ (BigCenter).</p></div>
+      <div class="fact"><span class="big num">100–150 USD</span><p>Mỗi tầng mặt bằng tương tác ở Mỹ (Anewgo). Gói dự án off-plan quốc tế từ 8.000 USD.</p></div>
+    </div>
+    <p class="note">Vinhomes, Novaland, Masterise, Ecopark đã dùng VR360 hoặc sa bàn ảo. Ở quốc tế, khách trả tiền vì lead, bán thêm tuỳ chọn và tư vấn từ xa, không vì "3D đẹp".</p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="label">02 · Ma trận tính năng</span>
+      <h2>Đã có ai làm, chưa có ai làm</h2>
+      <p>17 tính năng so trên thị trường Việt Nam và quốc tế. Lọc để xem riêng từng nhóm.</p>
+    </div>
+    <div class="filters" role="group" aria-label="Lọc tính năng">
+      <button type="button" id="f-all" data-filter="all" aria-pressed="true">Tất cả <span class="count">17</span></button>
+      <button type="button" id="f-gap" data-filter="gap" aria-pressed="false">Chưa ai làm <span class="count">6</span></button>
+      <button type="button" id="f-vn" data-filter="vn" aria-pressed="false">Quốc tế có, VN chưa <span class="count">4</span></button>
+      <button type="button" id="f-have" data-filter="have" aria-pressed="false">Đã có <span class="count">7</span></button>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Tính năng</th><th>Việt Nam</th><th>Quốc tế</th><th>Ai đang làm</th></tr>
+        </thead>
+        <tbody id="matrix">
+          <tr data-group="have"><td class="id">F1</td><td class="feat">Phối cảnh tĩnh, phim 3D</td><td><span class="pill p-have">Có</span></td><td><span class="pill p-have">Có</span></td><td class="who">BigCenter, Lamphim, mọi studio archviz</td></tr>
+          <tr data-group="have"><td class="id">F2</td><td class="feat">Panorama VR360 có hotspot (thông tin, giá, liên hệ)</td><td><span class="pill p-have">Có</span></td><td><span class="pill p-have">Có</span></td><td class="who">BigCenter, Yootek, Realbiz, VNi · Kuula, 3DVista</td></tr>
+          <tr data-group="have"><td class="id">F3</td><td class="feat">Sa bàn ảo / sa bàn 3D dự án</td><td><span class="pill p-have">Có</span></td><td><span class="pill p-have">Có</span></td><td class="who">VNi, VR360.com.vn (Novaland, Masterise) · 3D Estate</td></tr>
+          <tr data-group="have"><td class="id">F6</td><td class="feat">3D đi lại tự do trên web / mobile</td><td><span class="pill p-part">Chỉ ở showroom</span></td><td><span class="pill p-have">Có</span></td><td class="who">Sunshine (showroom) · Shapespark, Away Digital, 3D Estate</td></tr>
+          <tr data-group="have"><td class="id">F7</td><td class="feat">Bấm vào đồ / đổi vật liệu, biến thể</td><td><span class="pill p-part">Hạn chế</span></td><td><span class="pill p-have">Có</span></td><td class="who">Yootek (hotspot), Sunshine · Zonda Envision, GBuilder, Away Digital</td></tr>
+          <tr data-group="have"><td class="id">F8</td><td class="feat">Thu lead, trang quản trị, CRM</td><td><span class="pill p-part">Hạn chế</span></td><td><span class="pill p-have">Có</span></td><td class="who">VNi, BigCenter · Anewgo, Outhouse, Intwopixel</td></tr>
+          <tr data-group="have"><td class="id">F17</td><td class="feat">Bảng giá dịch vụ công khai theo mẫu</td><td><span class="pill p-part">Ít</span></td><td><span class="pill p-have">Có</span></td><td class="who">BigCenter · 3DPlans, Anewgo</td></tr>
+          <tr data-group="vn"><td class="id">F4</td><td class="feat">Mặt bằng tương tác cho marketing</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-have">Có</span></td><td class="who">Anewgo, 3DPlans, Outhouse, Zonda</td></tr>
+          <tr data-group="vn"><td class="id">F5</td><td class="feat">Chọn căn theo bảng hàng / tình trạng trên web</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-have">Có</span></td><td class="who">GBuilder, Intwopixel, UnitAtlas</td></tr>
+          <tr data-group="vn"><td class="id">F9</td><td class="feat">Máy tính giá theo tuỳ chọn (để sau MVP)</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-have">Có</span></td><td class="who">Anewgo, Zonda, GBuilder</td></tr>
+          <tr data-group="vn"><td class="id">F14</td><td class="feat">Thư viện mẫu nhà 3D cho công ty xây trọn gói</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-have">Có</span></td><td class="who">Anewgo, 3DPlans</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F12</td><td class="feat">3D + bản vẽ đồng bộ, sinh từ cùng mô hình, trong một link</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-none">Chưa thấy</span></td><td class="who">Higharc gần nhất, nhưng là tool nội bộ của builder</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F10</td><td class="feat">Bản vẽ kỹ thuật có kích thước trong gói marketing</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-part">Tách rời</span></td><td class="who">Higharc, Outhouse bán drafting riêng · VN chỉ có khi ký thi công</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F11</td><td class="feat">Mặt bằng trần / điện cho người mua xem</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-none">Chưa thấy</span></td><td class="who">Không ai. Chưa rõ người mua có cần, phải phỏng vấn</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F13</td><td class="feat">Bản vẽ trình bày theo TCVN trong sản phẩm marketing</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-na">—</span></td><td class="who">Không ai</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F15</td><td class="feat">Chủ đầu tư ký duyệt nội dung trước phát hành (pháp lý)</td><td><span class="pill p-none">Chưa thấy</span></td><td><span class="pill p-none">Chưa thấy</span></td><td class="who">Không ai làm thành tính năng</td></tr>
+          <tr data-group="gap" class="is-gap"><td class="id">F16</td><td class="feat">3D thật chạy mượt trong trình duyệt Zalo, máy yếu</td><td><span class="pill p-part">Chỉ panorama</span></td><td><span class="pill p-na">—</span></td><td class="who">Đối thủ VN né bằng panorama</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="label">03 · Khoảng trống</span>
+      <h2>Chỗ đứng đề xuất</h2>
+    </div>
+    <div class="gaps">
+      <div class="gap-item"><span class="label">F12 · F10</span><h3>Một link chứa cả 3D lẫn bản vẽ có kích thước</h3><p>Bản vẽ sinh từ cùng mô hình nên luôn khớp 3D. Đây là xương sống công nghệ (DEC-6).</p></div>
+      <div class="gap-item"><span class="label">F11 · F13</span><h3>Mặt bằng trần, điện, trình bày theo TCVN</h3><p>Không ai làm. Cần kiểm xem người mua có thật sự coi trọng.</p></div>
+      <div class="gap-item"><span class="label">F15</span><h3>Quy trình ký duyệt của chủ đầu tư</h3><p>Giảm rủi ro pháp lý khi quảng cáo nhà trên giấy, một điểm bán hàng với CĐT.</p></div>
+      <div class="gap-item"><span class="label">F16</span><h3>3D thật chạy trong Zalo</h3><p>Hơn panorama ở chỗ đi lại tự do, nhưng phải chứng minh được trên máy yếu.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="label">04 · Đề xuất</span>
+      <h2>Định vị, khách đầu tiên, giá</h2>
+    </div>
+    <div class="two">
+      <div class="card">
+        <blockquote>Nhà mẫu online có bản vẽ</blockquote>
+        <ul>
+          <li>Đội của bạn làm hộ trong vài ngày, chủ đầu tư ký duyệt, gửi khách bằng một link.</li>
+          <li><strong>Khách đầu tiên:</strong> chủ đầu tư nhà phố, biệt thự tầm trung ở tỉnh và sàn F1.</li>
+          <li><strong>Lấy case study nhanh:</strong> công ty xây nhà trọn gói, giá theo thư viện mẫu nhà.</li>
+          <li><strong>Lý lẽ bán:</strong> rẻ hơn nhà mẫu thật nhiều lần, hơn panorama vì có bản vẽ và đi lại tự do.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="label">Khung giá · ước tính, cần phỏng vấn kiểm</span>
+        <div class="prices">
+          <div class="price-row"><span>Mẫu căn hộ</span><span>25–50 tr ₫</span></div>
+          <div class="price-row"><span>Mẫu nhà phố / biệt thự</span><span>40–90 tr ₫</span></div>
+          <div class="price-row"><span>Gói dự án (4–6 mẫu, lead, quản trị)</span><span>150–350 tr ₫</span></div>
+          <div class="price-row"><span>Mẫu nhà cho công ty xây trọn gói</span><span>8–20 tr ₫</span></div>
+          <div class="price-row"><span>Hosting, bảo trì / dự án</span><span>1–3 tr ₫/tháng</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <span class="label">05 · Rủi ro</span>
+      <h2>Bốn điều có thể làm hỏng kế hoạch</h2>
+    </div>
+    <ol class="risks">
+      <li><span><strong>Pháp lý quảng cáo nhà trên giấy.</strong> Mô hình phải khớp hồ sơ đã duyệt, có ký duyệt và dòng "hình minh hoạ".</span></li>
+      <li><span><strong>Hiệu năng.</strong> 3D phải chạy được trên máy yếu và trong trình duyệt của Zalo.</span></li>
+      <li><span><strong>Chi phí dựng mỗi mẫu.</strong> Nếu quá cao so với giá 25–50 tr ₫ thì lỗ; cần công cụ nội bộ và thư viện dùng lại.</span></li>
+      <li><span><strong>Chưa phỏng vấn khách.</strong> Đề xuất 10 chủ đầu tư/sàn và 10 công ty xây nhà/nội thất, cộng 1–2 dự án pilot.</span></li>
+    </ol>
+  </section>
+
+  <footer>Nguồn chi tiết và bảng so sánh đầy đủ: <span class="num">docs/ai/items/01-interior-showcase-platform/00b-market-research.md</span></footer>
+</div>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.filters button');
+  var rows = document.querySelectorAll('#matrix tr');
+  function apply(filter) {
+    buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.filter === filter)); });
+    rows.forEach(function (r) { r.hidden = filter !== 'all' && r.dataset.group !== filter; });
+  }
+  buttons.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.filter); }); });
+})();
+</script>

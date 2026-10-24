@@ -1,0 +1,27 @@
+{
+  "name": "house-design",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.ts",
+    "build": "npm run build -w apps/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "seed": "npm run seed -w apps/api",
+    "start": "npm start -w apps/api",
+    "e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}
