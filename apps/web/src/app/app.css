@@ -238,3 +238,25 @@ body { background: var(--app-bg); }
 .ins-status { font-size: 12px; padding: 8px 10px; border-radius: 8px; }
 .ins-status.ok { background: var(--ok-soft); color: var(--ok); }
 .ins-status.warn { background: var(--warn-soft); color: var(--warn); }
+.ed-3d { display: grid; grid-template-columns: 1fr 300px; flex: 1; min-height: 0; }
+.ed-3d-view { position: relative; min-height: 0; }
+.ed-3d-view canvas { display: block; }
+.ed-float { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); background: #26221f; color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+.report { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 6px; }
+.report-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; word-break: break-all; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.lib-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; max-height: 280px; overflow: auto; }
+.lib-list li { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.lib-list em { display: block; font-style: normal; font-size: 11px; color: var(--muted); }
+.lib-list .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.lib-list input.grow { border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; min-width: 0; }
+.link-row { border: 0; background: none; text-align: left; padding: 4px 0; width: 100%; font-size: 13px; }
+.ins-search { border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; font-size: 13px; }
+.ins-cover { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.gallery figure { position: relative; margin: 0; aspect-ratio: 1; background: #f1ede7; border-radius: 6px; overflow: hidden; }
+.gallery img { width: 100%; height: 100%; object-fit: cover; }
+.gallery button { position: absolute; top: 2px; right: 2px; border: 0; background: rgba(0, 0, 0, 0.55); color: #fff; border-radius: 50%; width: 20px; height: 20px; line-height: 1; }
+.ed-center:has(.ed-3d) { grid-column: 2 / span 2; }
