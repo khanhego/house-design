@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cloneDocument, emptyDocument, floorFromRects, floorGrossArea, formatArea, HouseDocumentSchema,
   normalizePhoneVN, planSvg, roomArea, stripUnderlay, submitChecks, wallSegments, budgetForFloor,
-  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms, hasModel3d, hasTour, formatPriceVnd, sceneChapters, guessChapter,
+  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, auditFloor, findPath, buildNavGrid, obstaclesOf, standable, hasModel3d, hasTour, formatPriceVnd, sceneChapters, guessChapter,
 } from '../src/index.ts'
 import type { HouseDocument, ModelReport } from '../src/index.ts'
 
@@ -209,14 +209,36 @@ describe('lối đi — ROOM_UNREACHABLE', () => {
       open: open ? [['Khách', 'Ngủ']] : undefined,
     })
   const docOf = (f: ReturnType<typeof mk>) => ({ ...emptyDocument(), floors: [f] })
+  const unreachable = (f: ReturnType<typeof mk>, lib = {}) => auditFloor(docOf(f), f, lib).filter((i) => i.code === 'ROOM_UNREACHABLE').map((i) => f.rooms.find((r) => r.id === i.roomId)!.name)
   it('phòng không có cửa → cảnh báo; có cửa hoặc thông nhau → không', () => {
-    const f1 = mk(false)
-    expect(unreachableRooms(docOf(f1), f1).map((id) => f1.rooms.find((r) => r.id === id)!.name)).toEqual(['Ngủ'])
-    const f2 = mk(true)
-    expect(unreachableRooms(docOf(f2), f2)).toEqual([])
+    expect(unreachable(mk(false))).toEqual(['Ngủ'])
+    expect(unreachable(mk(true))).toEqual([])
     const f3 = mk(false, true)
     expect(f3.walls.some((w) => w.a[0] === 5000 && w.b[0] === 5000)).toBe(false)
-    expect(unreachableRooms(docOf(f3), f3)).toEqual([])
+    expect(unreachable(f3)).toEqual([])
+  })
+  it('đồ đặt chắn cửa → cảnh báo cửa bị chặn và phòng không vào được', () => {
+    const f = mk(true)
+    f.items = [{ id: 'w', source: { libraryItemId: 'wardrobe' }, position: [5400, 1950], elevation: 0, rotation: 90 }]
+    const lib = { wardrobe: { category: 'storage', sizeMm: [1800, 2200, 600] as [number, number, number] } }
+    const codes = auditFloor(docOf(f), f, lib).map((i) => i.code)
+    expect(codes).toContain('DOOR_BLOCKED')
+    expect(unreachable(f, lib)).toEqual(['Ngủ'])
+  })
+  it('cửa 0,9 m đi qua được — đầu tường không lấn vào khung cửa', () => {
+    const f = mk(true)
+    expect(standable([5000, 1950], obstaclesOf(f))).toBe(true)
+    expect(auditFloor(docOf(f), f).filter((i) => i.code === 'NARROW_PASSAGE')).toEqual([])
+  })
+  it('tìm đường từ phòng này sang phòng kia qua cửa, không xuyên tường', () => {
+    const f = mk(true)
+    const g = buildNavGrid(f, obstaclesOf(f))
+    const path = findPath(g, [2500, 3000], [7000, 3000])!
+    expect(path.length).toBeGreaterThan(2)
+    // có đi qua ô cửa (x = 5000, y 1500–2400)
+    const cross = path.some((p, i) => i > 0 && (path[i - 1][0] - 5000) * (p[0] - 5000) <= 0 && Math.min(path[i - 1][1], p[1]) < 2400 && Math.max(path[i - 1][1], p[1]) > 1500)
+    expect(cross).toBe(true)
+    expect(findPath(buildNavGrid(mk(false), obstaclesOf(mk(false))), [2500, 3000], [7000, 3000])).toBeNull()
   })
 })
 

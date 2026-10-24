@@ -1,5 +1,6 @@
-import { bboxOf, emptyDocument, floorFromRects, newId } from '@hd/core'
-import type { Floor, HouseDocument, HouseType, PlacedItem, Room } from '@hd/core'
+import { emptyDocument, floorFromRects } from '@hd/core'
+import type { Floor, HouseDocument, HouseType } from '@hd/core'
+import { furnishHouse } from './furnish.ts'
 import type { LibraryInput } from '../repos/repos.ts'
 
 /* Dữ liệu demo (AC-01): 4 loại nhà, đồ thư viện chuyển từ catalog prototype (src/legacy/data/catalog.ts). */
@@ -46,83 +47,7 @@ export const LIBRARY: (LibraryInput & { key: string })[] = RAW.map((i) => ({ ...
 
 type LibIds = Record<string, string>
 
-/** Bày đồ theo công năng phòng: bám tường trên (y nhỏ) và tường trái, mặt quay vào phòng. */
-const furnish = (room: Room, lib: LibIds, sizes: Record<string, [number, number, number]>): PlacedItem[] => {
-  const b = bboxOf(room.polygon)
-  const W = b.maxX - b.minX
-  const D = b.maxY - b.minY
-  const out: PlacedItem[] = []
-  const put = (key: string, x: number, y: number, rotation = 0) => {
-    if (!lib[key]) return
-    out.push({ id: newId('itm'), source: { libraryItemId: lib[key] }, position: [Math.round(x), Math.round(y)], elevation: 0, rotation })
-  }
-  const d = (key: string) => sizes[key]?.[2] ?? 500
-  const w = (key: string) => sizes[key]?.[0] ?? 500
-  switch (room.function) {
-    case 'living':
-      if (W > 3800 && D > 3200) {
-        put('rug', b.minX + W / 2, b.minY + D / 2)
-        put('sofa', b.minX + W / 2, b.minY + d('sofa') / 2 + 80)
-        put('coffee', b.minX + W / 2, b.minY + D / 2)
-        put('tv', b.minX + W / 2, b.maxY - d('tv') / 2 - 40, 180)
-        put('plant', b.minX + 350, b.minY + 350)
-        put('lamp', b.maxX - 300, b.minY + 300)
-      } else {
-        put('sofa', b.minX + W / 2, b.minY + d('sofa') / 2 + 80)
-        put('coffee', b.minX + W / 2, b.minY + D / 2)
-      }
-      break
-    case 'bedroom': {
-      const big = W * D > 14e6
-      const bed = big ? 'bedKing' : 'bed'
-      put(bed, b.minX + W / 2, b.minY + d(bed) / 2 + 40)
-      if (W > w(bed) + 1200) {
-        put('nightstand', b.minX + W / 2 - w(bed) / 2 - 300, b.minY + 250)
-        put('nightstand', b.minX + W / 2 + w(bed) / 2 + 300, b.minY + 250)
-      }
-      if (D > d(bed) + 1500) put('wardrobe', b.minX + W / 2, b.maxY - d('wardrobe') / 2 - 40, 180)
-      break
-    }
-    case 'kitchen':
-    case 'dining':
-      put('kitchen', b.minX + Math.min(W, 2600) / 2 + 60, b.minY + d('kitchen') / 2 + 20)
-      if (W > 3400) put('fridge', b.maxX - d('fridge') / 2 - 60, b.minY + d('fridge') / 2 + 20)
-      if (D > 2800) {
-        const cy = b.minY + D * 0.62
-        const cx = b.minX + W / 2
-        put('dining', cx, cy)
-        put('chair', cx - 400, cy - 650)
-        put('chair', cx + 400, cy - 650)
-        put('chair', cx - 400, cy + 650, 180)
-        put('chair', cx + 400, cy + 650, 180)
-      }
-      break
-    case 'bathroom':
-    case 'wc':
-      put('vanity', b.minX + d('vanity') / 2 + 20, b.minY + w('vanity') / 2 + 60, 90)
-      put('toilet', b.maxX - d('toilet') / 2 - 40, b.minY + 500, -90)
-      if (D > 2200) put('shower', b.maxX - 500, b.maxY - 500)
-      break
-    case 'study':
-      put('desk', b.minX + W / 2, b.minY + d('desk') / 2 + 40)
-      put('officeChair', b.minX + W / 2, b.minY + d('desk') + 400, 180)
-      put('shelf', b.maxX - d('shelf') / 2 - 30, b.minY + D / 2, -90)
-      break
-    case 'hall':
-      put('plant', b.minX + 350, b.minY + 350)
-      put('armchair', b.minX + W / 2, b.minY + D / 2)
-      break
-    case 'worship':
-      put('shelf', b.minX + W / 2, b.minY + d('shelf') / 2 + 30)
-      break
-  }
-  return out
-}
-
-const furnishFloor = (f: Floor, lib: LibIds, sizes: Record<string, [number, number, number]>): Floor => ({
-  ...f,
-  items: f.rooms.flatMap((r) => furnish(r, lib, sizes)),
-})
+const CATEGORY = Object.fromEntries(RAW.map((i) => [i.key, i.category]))
 
 export interface DemoHouse {
   slug: string
@@ -138,7 +63,7 @@ export interface DemoHouse {
 export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, number]>): DemoHouse[] => {
   const doc = (floors: Floor[]): HouseDocument => ({
     ...emptyDocument(),
-    floors: floors.map((f) => furnishFloor(f, lib, sizes)),
+    ...furnishHouse({ ...emptyDocument(), floors }, lib, sizes, CATEGORY),
   })
 
   // 1. Căn hộ 2PN — 1 sàn, lô gia
@@ -182,13 +107,14 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     ],
     openings: [
       { kind: 'door', axis: 'x', at: 0, from: 600, to: 4400, height: 2600 },
-      { kind: 'door', axis: 'x', at: 5000, from: 1000, to: 2400, swing: 'right' },
+      { kind: 'door', axis: 'x', at: 5000, from: 700, to: 2100, swing: 'right' },
       { kind: 'door', axis: 'x', at: 11000, from: 1000, to: 2400 },
       { kind: 'door', axis: 'x', at: 16000, from: 500, to: 1200 },
       { kind: 'door', axis: 'x', at: 16000, from: 3000, to: 3800 },
       { kind: 'window', axis: 'x', at: 18000, from: 2800, to: 4400 },
     ],
-    stairs: [stair()],
+    // thang lên lửng chạy về phía mặt tiền: chân thang ở phòng khách, đầu thang ra không gian lửng
+    stairs: [{ rect: [2600, 6000, 1100, 3600], upDirection: 270 }],
   })
   const tpL = floorFromRects({
     name: 'Tầng lửng', order: 2, elevation: 3600, height: 2700,
@@ -196,10 +122,9 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
       { name: 'Phòng sinh hoạt', function: 'hall', rect: [0, 0, W, 5000] },
       { name: 'Phòng làm việc', function: 'study', rect: [0, 5000, W, 3000] },
     ],
-    openings: [
-      { kind: 'window', axis: 'x', at: 0, from: 800, to: 4200, sill: 600, height: 1600 },
-      { kind: 'door', axis: 'x', at: 5000, from: 800, to: 1700 },
-    ],
+    openings: [{ kind: 'window', axis: 'x', at: 0, from: 800, to: 4200, sill: 600, height: 1600 }],
+    // lửng là một không gian mở; thang lên tầng 2 chân ở sinh hoạt, đầu ra hành lang tầng 2
+    open: [['Phòng sinh hoạt', 'Phòng làm việc']],
     stairs: [{ rect: [3800, 5100, 1100, 2800], upDirection: 90 }],
   })
   const tp2 = floorFromRects({
@@ -237,6 +162,7 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     stairs: [stair()],
   })
   tp1.stairs[0].toFloorId = tpL.id
+  tpL.stairs[0].toFloorId = tp2.id
   tp2.stairs[0].toFloorId = tp3.id
   const town = doc([tp1, tpL, tp2, tp3])
 
@@ -306,7 +232,8 @@ export const demoHouses = (lib: LibIds, sizes: Record<string, [number, number, n
     rooms: [
       { name: 'Phòng thờ', function: 'worship', rect: [0, 0, 6000, 4000] },
       { name: 'Phòng làm việc', function: 'study', rect: [0, 4000, 6000, 4000] },
-      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 4000, 2000, 4000] },
+      // sảnh tầng chạy hết chiều sâu để đầu thang từ tầng 2 lên nằm trong nhà
+      { name: 'Sảnh tầng', function: 'hall', rect: [6000, 0, 2000, 8000] },
     ],
     openings: [
       { kind: 'door', axis: 'x', at: 4000, from: 2400, to: 3600 },

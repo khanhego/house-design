@@ -1,78 +1,58 @@
-import { wallSegments } from '@hd/core'
-import type { Floor } from '@hd/core'
+import { BODY_RADIUS as BODY_MM, buildNavGrid, clearanceAt, findPath, furnitureObstacles, standable, stairEnd as stairEndMm, wallObstacles, wallSegments } from '@hd/core'
+import type { Floor, NavGrid, NavLibrary, Obstacle, Point } from '@hd/core'
 
-/* Đi bộ trong nhà (chế độ "Đứng trong phòng"): chặn đi xuyên tường, chỉ qua được ô cửa đi. Đơn vị: mét, mặt bằng (x, z). */
+/*
+ * Đi bộ trong nhà (chế độ "Đứng trong phòng"), đơn vị mét trên mặt bằng (x, z).
+ * Va chạm và tìm đường dùng chung với kiểm lối đi khi dựng (@hd/core nav.ts): tường / đồ là khối hộp đúng kích thước,
+ * chỉ qua được ô cửa đi.
+ */
 
 export type P2 = [number, number]
-
-export interface Blocker {
-  a: P2
-  b: P2
-  /** nửa độ dày tường (m) */
-  half: number
-  /** khối đặc (đồ nội thất): điểm nằm trong đa giác này cũng bị chặn */
-  solid?: P2[]
-}
+export type Blocker = Obstacle
 
 /** Bán kính thân người khi kiểm va chạm (m). */
-export const BODY_RADIUS = 0.22
+export const BODY_RADIUS = BODY_MM / 1000
 
-/** Đoạn tường chặn người: phần đặc và bậu cửa sổ (thấp hơn 1 m). Ô cửa đi không chặn. */
-export const blockersOf = (floor: Floor): Blocker[] =>
-  wallSegments(floor).flatMap((L) => {
-    const { wall, frame } = L
-    return L.pieces
-      .filter((p) => p.bottom < 1000)
-      .map((p) => ({
-        a: [(wall.a[0] + frame.u[0] * p.from) / 1000, (wall.a[1] + frame.u[1] * p.from) / 1000] as P2,
-        b: [(wall.a[0] + frame.u[0] * p.to) / 1000, (wall.a[1] + frame.u[1] * p.to) / 1000] as P2,
-        half: wall.thickness / 2000,
-      }))
-  })
+const mm = (p: P2): Point => [p[0] * 1000, p[1] * 1000]
+const m = (p: Point): P2 => [p[0] / 1000, p[1] / 1000]
 
-const distToSeg = (p: P2, a: P2, b: P2) => {
-  const dx = b[0] - a[0]
-  const dz = b[1] - a[1]
-  const len2 = dx * dx + dz * dz
-  const t = len2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / len2)) : 0
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dz))
-}
+/** Phần tường đặc, bậu và kính cửa sổ chặn người. Ô cửa đi không chặn. */
+export const blockersOf = (floor: Floor): Blocker[] => wallObstacles(floor)
 
-const inPoly = (p: P2, poly: P2[]) => {
-  let inside = false
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const [xi, zi] = poly[i]
-    const [xj, zj] = poly[j]
-    if (zi > p[1] !== zj > p[1] && p[0] < ((xj - xi) * (p[1] - zi)) / (zj - zi) + xi) inside = !inside
-  }
-  return inside
-}
+/** Đồ nội thất chặn người (bỏ thảm, đồ thấp < 15 cm). */
+export const furnitureBlockers = (floor: Floor, lib: NavLibrary): Blocker[] => furnitureObstacles(floor, lib)
 
-export const isFree = (p: P2, blockers: Blocker[]) =>
-  blockers.every((w) => distToSeg(p, w.a, w.b) >= w.half + BODY_RADIUS && !(w.solid && inPoly(p, w.solid)))
+export const isFree = (p: P2, blockers: Blocker[]) => standable(mm(p), blockers)
 
-/** Đi từ `from` về phía `to` theo bước nhỏ; dừng trước tường. Trả điểm xa nhất đi được. */
+/** Khoảng trống (m) từ điểm tới vật chặn gần nhất; 0 nếu nằm trong vật chặn. */
+export const clearance = (p: P2, blockers: Blocker[]) => clearanceAt(mm(p), blockers) / 1000
+
+/**
+ * Đi từ `from` về phía `to` theo bước nhỏ; không xuyên tường. Bị chặn thì thử lệch hướng dần (±20°…±70°) để trượt
+ * dọc tường, lướt qua cạnh khung cửa / góc đồ thay vì dính lại. Trả điểm xa nhất đi được.
+ */
 export const stepTowards = (from: P2, to: P2, blockers: Blocker[], step = 0.04): P2 => {
   const d = Math.hypot(to[0] - from[0], to[1] - from[1])
   if (d < 1e-6) return from
   // đang kẹt (vd. dữ liệu đặt đồ chồng lên chỗ đứng) → cho bước ra, không giữ chặt
   if (!isFree(from, blockers)) return to
   const n = Math.ceil(d / step)
-  const sx = (to[0] - from[0]) / n
-  const sz = (to[1] - from[1]) / n
+  const len = d / n
+  const dir = Math.atan2(to[1] - from[1], to[0] - from[0])
   let last = from
-  // đi từng bước từ vị trí hiện tại; bị chặn thì trượt dọc tường, không trượt được thì dừng (không "nhảy" qua tường)
   for (let i = 0; i < n; i++) {
-    const p: P2 = [last[0] + sx, last[1] + sz]
-    if (isFree(p, blockers)) {
-      last = p
-      continue
+    let moved = false
+    for (const off of [0, 20, -20, 40, -40, 60, -60, 75, -75]) {
+      const a = dir + (off * Math.PI) / 180
+      const k = len * Math.cos((off * Math.PI) / 180)
+      const p: P2 = [last[0] + Math.cos(a) * k, last[1] + Math.sin(a) * k]
+      if (isFree(p, blockers)) {
+        last = p
+        moved = true
+        break
+      }
     }
-    const alongX: P2 = [last[0] + sx, last[1]]
-    const alongZ: P2 = [last[0], last[1] + sz]
-    if (Math.abs(sx) > 1e-9 && isFree(alongX, blockers)) last = alongX
-    else if (Math.abs(sz) > 1e-9 && isFree(alongZ, blockers)) last = alongZ
-    else return last
+    if (!moved) return last
   }
   return last
 }
@@ -90,29 +70,14 @@ export const nearestFree = (p: P2, blockers: Blocker[]): P2 => {
   return p
 }
 
-/** Đồ nội thất chặn người: khung chữ nhật theo kích thước thư viện, xoay theo góc đặt. Bỏ qua thảm, đồ thấp < 15 cm. */
-export const furnitureBlockers = (floor: Floor, libraryItems: Record<string, { category: string; sizeMm: [number, number, number] }>): Blocker[] =>
-  floor.items.flatMap((it) => {
-    if (!('libraryItemId' in it.source)) return []
-    const lib = libraryItems[it.source.libraryItemId]
-    if (!lib || lib.category === 'rug' || lib.sizeMm[1] < 150 || it.elevation > 1200) return []
-    const [w, , d] = lib.sizeMm
-    const t = (it.rotation * Math.PI) / 180
-    const c = Math.cos(t)
-    const s = Math.sin(t)
-    const corner = (x: number, z: number): P2 => [(it.position[0] + x * c - z * s) / 1000, (it.position[1] + x * s + z * c) / 1000]
-    const pts = [corner(-w / 2, -d / 2), corner(w / 2, -d / 2), corner(w / 2, d / 2), corner(-w / 2, d / 2)]
-    return pts.map((a, i) => ({ a, b: pts[(i + 1) % 4], half: 0, solid: i === 0 ? pts : undefined }))
-  })
-
-/** Khoảng trống (m) từ điểm tới vật chặn gần nhất; âm/0 nếu nằm trong khối đặc. */
-export const clearance = (p: P2, blockers: Blocker[]) => {
-  let m = Infinity
-  for (const w of blockers) {
-    if (w.solid && inPoly(p, w.solid)) return 0
-    m = Math.min(m, distToSeg(p, w.a, w.b) - w.half)
+const inPoly = (p: P2, poly: P2[]) => {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i]
+    const [xj, zj] = poly[j]
+    if (zi > p[1] !== zj > p[1] && p[0] < ((xj - xi) * (p[1] - zi)) / (zj - zi) + xi) inside = !inside
   }
-  return m
+  return inside
 }
 
 /** Chỗ đứng thoáng nhất trong phòng, ưu tiên gần tâm: lấy mẫu lưới 0,2 m trong đa giác phòng. */
@@ -160,15 +125,60 @@ export const nearestFreeIn = (p: P2, blockers: Blocker[], areas: P2[][]): P2 => 
 }
 
 /** Điểm đứng ở đầu trên (`top`) hoặc chân (`bottom`) cầu thang, cách mép 0,6 m (m). */
-export const stairEnd = (polygon: [number, number][], upDirection: number, end: 'top' | 'bottom'): P2 => {
-  const xs = polygon.map((p) => p[0])
-  const ys = polygon.map((p) => p[1])
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
-  const a = (upDirection * Math.PI) / 180
-  const dx = Math.cos(a)
-  const dy = Math.sin(a)
-  const half = Math.abs(dx) > Math.abs(dy) ? (Math.max(...xs) - Math.min(...xs)) / 2 : (Math.max(...ys) - Math.min(...ys)) / 2
-  const k = (end === 'top' ? 1 : -1) * (half + 600)
-  return [(cx + dx * k) / 1000, (cy + dy * k) / 1000]
+export const stairEnd = (polygon: [number, number][], upDirection: number, end: 'top' | 'bottom'): P2 => m(stairEndMm(polygon, upDirection, end))
+
+/** Lưới tìm đường cho một tầng (tính một lần khi vào tầng). */
+export const navGridOf = (floor: Floor, blockers: Blocker[]): NavGrid => buildNavGrid(floor, blockers, 50)
+
+/** Đường đi (m) từ `from` tới `to` né tường, đồ, qua cửa; không có đường → null. Điểm đầu là `from`. */
+export const pathTo = (grid: NavGrid, from: P2, to: P2): P2[] | null => findPath(grid, mm(from), mm(to))?.map(m) ?? null
+
+/** Ô cửa đi trên tầng (m): tâm, pháp tuyến, nửa bề rộng. */
+export interface Portal {
+  c: P2
+  n: P2
+  half: number
+}
+
+export const portalsOf = (floor: Floor): Portal[] =>
+  wallSegments(floor).flatMap((L) =>
+    L.openings
+      .filter((o) => o.opening.kind === 'door')
+      .map((o) => {
+        const s = (o.from + o.to) / 2
+        return { c: [(L.wall.a[0] + L.frame.u[0] * s) / 1000, (L.wall.a[1] + L.frame.u[1] * s) / 1000] as P2, n: [L.frame.n[0], L.frame.n[1]] as P2, half: (o.to - o.from) / 2000 }
+      }),
+  )
+
+/**
+ * Một bước đi theo hướng `dir` (đơn vị) dài `dist` (m). Bị chặn mà đang hướng về một ô cửa gần (≤ 1,6 m) thì kéo
+ * hướng đi vào giữa cửa — đi chéo lệch tâm không còn dính vào cạnh khung cửa.
+ */
+export const walkStep = (from: P2, dir: P2, dist: number, blockers: Blocker[], portals: Portal[]): P2 => {
+  const plain = stepTowards(from, [from[0] + dir[0] * dist, from[1] + dir[1] * dist], blockers)
+  const got = Math.hypot(plain[0] - from[0], plain[1] - from[1])
+  if (got > dist * 0.6) return plain
+  let best: P2 | null = null
+  let bd = Infinity
+  for (const p of portals) {
+    const vx = p.c[0] - from[0]
+    const vz = p.c[1] - from[1]
+    const d = Math.hypot(vx, vz)
+    if (d > 1.6 || d < 1e-3) continue
+    const along = vx * p.n[0] + vz * p.n[1]
+    const side = Math.sign(along) || Math.sign(dir[0] * p.n[0] + dir[1] * p.n[1]) || 1
+    // đang muốn đi qua cửa: hướng đi cùng chiều xuyên cửa
+    if ((dir[0] * p.n[0] + dir[1] * p.n[1]) * side < 0.25) continue
+    // điểm ngắm: trước cửa thì nhắm giữa cửa, đã vào khung cửa thì nhắm ra phía bên kia
+    const aim: P2 = Math.abs(along) > 0.15 ? [p.c[0] - p.n[0] * side * 0.05, p.c[1] - p.n[1] * side * 0.05] : [p.c[0] + p.n[0] * side * 0.5, p.c[1] + p.n[1] * side * 0.5]
+    if (d < bd) (bd = d), (best = aim)
+  }
+  if (!best) return plain
+  const ax = best[0] - from[0]
+  const az = best[1] - from[1]
+  const al = Math.hypot(ax, az) || 1
+  const mix: P2 = [dir[0] * 0.3 + (ax / al) * 0.7, dir[1] * 0.3 + (az / al) * 0.7]
+  const ml = Math.hypot(mix[0], mix[1]) || 1
+  const assisted = stepTowards(from, [from[0] + (mix[0] / ml) * dist, from[1] + (mix[1] / ml) * dist], blockers)
+  return Math.hypot(assisted[0] - from[0], assisted[1] - from[1]) > got ? assisted : plain
 }

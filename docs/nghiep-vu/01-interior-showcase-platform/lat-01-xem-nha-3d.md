@@ -40,7 +40,7 @@ Vì cả ba đến từ một nguồn, sẽ không có chuyện 3D vẽ phòng 4
 
 ### Bước 3 — Khách vào một phòng
 - Bấm vào sàn phòng (hoặc tên phòng, hoặc ô phòng trên mặt bằng nhỏ) thì máy quay bay tới phòng đó, phòng được tô sáng.
-- Bật "Đứng trong phòng" thì máy quay hạ xuống tầm mắt người (1,6 m), đứng ở cuối phòng nhìn về phía đầu phòng. Kéo để nhìn quanh, bấm sàn chỗ khác để bước tới đó.
+- Bật "Đứng trong phòng" thì máy quay hạ xuống tầm mắt người (1,6 m), đứng ở cuối phòng nhìn về phía đầu phòng. Kéo để nhìn quanh, bấm sàn chỗ khác (kể cả phòng bên cạnh) thì người mẫu tự tìm đường qua cửa, né đồ mà đi tới.
 
 ### Bước 4 — Khách bấm vào một món đồ
 - Hiện tên, kích thước (mm), chất liệu, thương hiệu, mô tả.
@@ -150,6 +150,20 @@ sequenceDiagram
 | Đồ nội thất, chọn, đổi màu | `apps/web/src/scene/Items.tsx`, `viewer/ItemPanel.tsx` | E2E (T-30) |
 | Trang xem, link sâu, mobile | `apps/web/src/viewer/HousePage.tsx`, `viewer/viewer.css` | E2E (T-30) |
 | Tab mặt bằng, PDF A3 | `apps/web/src/viewer/PlanTab.tsx`, `lib/pdf.ts`, `lib/pdfScale.ts` | `apps/web/test/viewer.test.ts` — "chọn tỷ lệ…" |
+
+## 7b. Lối đi trong nhà (DEC-52, 2026-10-25)
+
+Một module duy nhất `packages/core/src/nav.ts` quyết định "người đi được ở đâu" cho ba nơi: người mẫu trong trình xem 3D (`apps/web/src/scene/walk.ts`), cảnh báo khi gửi duyệt (`submitChecks`) và test nhà mẫu (`apps/api/test/demo-layout.test.ts`). Ba nơi luôn ra cùng kết quả.
+
+| Quy tắc | Lý do |
+|---|---|
+| Tường, kính cửa sổ (kể cả kính sát sàn), đồ cao ≥ 15 cm là vật cản hình hộp đúng kích thước; ô cửa đi không chặn; thân người bán kính 0,2 m | Trước đây đầu tường được bo tròn nên lấn vào khung cửa: cửa 0,9 m chỉ còn 0,7 m, người mẫu hay kẹt |
+| Cảnh báo khi gửi duyệt: phòng không vào được, phòng không còn chỗ đứng, lối vào hẹp < 0,65 m, đồ chắn cửa (trong 0,6 m), không tới được chân / đầu cầu thang, phòng chật (không có chỗ trống rộng 1 m) | Người xem 3D sẽ kẹt đúng ở những chỗ này; đội dựng sửa trước khi khách thấy |
+| Bấm sàn → tìm đường (A*, ưu tiên đi giữa lối) | Đi thẳng thì gặp tường là dừng — người xem tưởng hỏng |
+| Đi bằng phím gần cửa mà bị chặn → kéo hướng đi vào giữa cửa | Đi chéo lệch tâm dính cạnh khung cửa (bắt được 23/210 lần trước khi sửa) |
+| Xếp đồ nhà mẫu (`seed/furnish.ts`) chừa 0,9 m trước cửa, hai đầu cầu thang và chỗ đầu thang từ tầng dưới lên; còn hẹp thì bỏ bớt đồ phụ (cây, đèn, ghế…) | Hàm xếp cũ đặt sofa chắn cửa chính, kệ TV chắn cửa bếp, tủ áo chắn cửa WC |
+
+Kiểm hồi quy khi đổi logic đi bộ: `?debug3d=1` có `window.__hdWalkTo(x, z)` để kịch bản tự động cho người mẫu đi qua mọi phòng, mọi cửa, mọi cầu thang.
 
 ## 8. Giới hạn hiện tại và giả định
 - Dữ liệu là mẫu; nội thất xếp tự động nên vài chỗ chưa hợp lý (ví dụ cửa garage 3,8 m vẽ thành cửa cánh, vì schema chưa có cửa cuốn).

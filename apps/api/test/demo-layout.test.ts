@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { unreachableRooms } from '@hd/core'
+import { auditHouse, pointInPolygon } from '@hd/core'
 import { LIBRARY, demoHouses } from '../src/seed/demoHouses.ts'
 
-/* Nhà mẫu phải đi lại được: mọi phòng có lối vào từ cửa chính / cầu thang (lỗi kẻ thừa tường ngăn). */
+/* Nhà mẫu phải đi lại được (nav.ts): mọi phòng vào được từ cửa chính / cầu thang, lối đi ≥ 0,65 m, không đồ chắn cửa / cầu thang. */
 describe('nhà mẫu — lối đi giữa các phòng', () => {
   const ids = Object.fromEntries(LIBRARY.map((l) => [l.key, `lib_${l.key}`]))
   const sizes = Object.fromEntries(LIBRARY.map((l) => [l.key, l.sizeMm]))
+  const lib = Object.fromEntries(LIBRARY.map((l) => [`lib_${l.key}`, { category: l.category, sizeMm: l.sizeMm }]))
   for (const h of demoHouses(ids as never, sizes as never)) {
-    it(`${h.slug}: không phòng nào bị cô lập`, () => {
-      const bad = h.document.floors.flatMap((f) => unreachableRooms(h.document, f).map((id) => `${f.name} · ${f.rooms.find((r) => r.id === id)!.name}`))
-      expect(bad).toEqual([])
+    it(`${h.slug}: đi lại được khắp nhà, không lối hẹp, không đồ chắn cửa`, () => {
+      expect(auditHouse(h.document, lib).map((i) => i.message)).toEqual([])
+    })
+    it(`${h.slug}: WC nào cũng có bồn cầu, phòng ngủ nào cũng có giường`, () => {
+      for (const f of h.document.floors)
+        for (const r of f.rooms) {
+          const keys = f.items.filter((it) => pointInPolygon(it.position, r.polygon)).map((it) => ('libraryItemId' in it.source ? it.source.libraryItemId : ''))
+          if (r.function === 'wc' || r.function === 'bathroom') expect(keys, `${f.name} · ${r.name}`).toContain('lib_toilet')
+          if (r.function === 'bedroom') expect(keys.some((k) => k.startsWith('lib_bed')), `${f.name} · ${r.name}`).toBe(true)
+        }
     })
   }
 })

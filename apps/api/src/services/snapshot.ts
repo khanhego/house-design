@@ -38,6 +38,7 @@ export const checkContext = (ctx: Ctx, doc: HouseDocument): CheckContext => {
   return {
     models: Object.fromEntries([...ms.values()].map((m) => [m.id, { status: m.status, report: m.report }])),
     libraryModels: Object.fromEntries([...lib.values()].map((i) => [i.id, i.modelAssetId])),
+    libraryItems: Object.fromEntries([...lib.values()].map((i) => [i.id, { category: i.category, sizeMm: i.sizeMm }])),
   }
 }
 

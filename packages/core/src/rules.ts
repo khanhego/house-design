@@ -1,5 +1,6 @@
 import { bboxOf, centroid, isSimplePolygon, pointInPolygon, polygonArea, wallsOutline } from './geometry.ts'
-import { unreachableRooms } from './reach.ts'
+import { auditFloor } from './nav.ts'
+import type { NavLibrary } from './nav.ts'
 import { newId } from './ids.ts'
 import { MAX_FLOORS } from './schema.ts'
 import type { TourChapter } from './schema.ts'
@@ -99,6 +100,8 @@ export interface CheckContext {
   models: Record<string, ModelInfo>
   /** modelAssetId của đồ thư viện (nếu có GLB) */
   libraryModels: Record<string, string | null | undefined>
+  /** kích thước + loại đồ thư viện — để kiểm lối đi có tính đồ nội thất */
+  libraryItems?: NavLibrary
 }
 
 /** Mô hình được tham chiếu trong một góc xem tầng: tầng + ngoại thất + cả nhà + GLB đồ thư viện trên tầng. */
@@ -150,7 +153,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
 export interface Check {
   level: 'block' | 'warn'
   code:
-    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'MODEL_PROCESSING'
+    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'MODEL_PROCESSING'
     | 'MODEL_FAILED' | 'MODEL_NODE_MISSING' | 'BUDGET_BLOCK' | 'BUDGET_WARN' | 'NO_COVER'
     | 'FLOOR_NO_OUTLINE' | 'NO_DEFAULT_VIEWPOINT'
   message: string
@@ -223,12 +226,10 @@ export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => 
       if (!isSimplePolygon(r.polygon))
         out.push({ level: 'block', code: 'ROOM_NOT_CLOSED', floorId: f.id, objectId: r.id, message: `${f.name}: phòng "${r.name}" chưa khép kín` })
     }
-    // lối đi: phòng không có cửa / lối vào (lỗi dựng thường gặp khi kẻ thừa tường ngăn)
+    // lối đi (nav.ts): phòng không vào được, lối hẹp, cửa bị đồ chặn, cầu thang bị chặn — cùng luật với người mẫu 3D
     if (f.calibrated)
-      for (const id of unreachableRooms(doc, f)) {
-        const r = f.rooms.find((x) => x.id === id)!
-        out.push({ level: 'warn', code: 'ROOM_UNREACHABLE', floorId: f.id, objectId: id, message: `${f.name}: không đi vào được "${r.name}" — thiếu cửa đi hoặc lối đi hẹp hơn 0,4 m` })
-      }
+      for (const i of auditFloor(doc, f, ctx.libraryItems ?? {}))
+        out.push({ level: 'warn', code: i.code, floorId: f.id, objectId: i.roomId, message: i.message })
     if (!f.outline || f.outline.length < 3)
       out.push({ level: 'warn', code: 'FLOOR_NO_OUTLINE', floorId: f.id, message: `${f.name} chưa có đường bao, diện tích sàn tính theo hình chữ nhật bao` })
     for (const it of f.items) {

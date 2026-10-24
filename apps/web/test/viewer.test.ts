@@ -68,7 +68,7 @@ describe('đi bộ trong nhà — va chạm đồ', async () => {
   const lib = { table: { category: 'table', sizeMm: [1600, 750, 900] as [number, number, number] }, rug: { category: 'rug', sizeMm: [2000, 10, 1400] as [number, number, number] } }
   it('bàn ăn chặn người, thảm thì đi qua được', () => {
     const bl = furnitureBlockers(f, lib)
-    expect(bl).toHaveLength(4)
+    expect(bl).toHaveLength(1)
     expect(stepTowards([1, 3], [5, 3], bl)[0]).toBeLessThan(3 - 0.8)
     expect(stepTowards([1, 1], [5, 1], bl)[0]).toBeCloseTo(5)
   })
