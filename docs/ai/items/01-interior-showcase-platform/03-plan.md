@@ -42,10 +42,10 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T-11 | Auth + users + clients + thu hồi phiên + outbox/transport + E1/E2 | be | API-01…05, 10…13 | 02a B4 | T-3 | 1 | ✅ |
 | T-12 | Route quản trị projects (quyền field, slug khoá) + files + houses + versions + autosave + duplicate | be | API-20…23, 30…36 | 02a B5 (route) | T-5, T-11 | 1 | ✅ |
 | T-13 | Library route | be | API-40, 41 | 02a B7 | T-12 | 0,5 | ✅ |
-| T-14 | app.html: layout, đăng nhập (C1), guard, ui kit | fe | FR-01.05 | 02b F7 | T-11, T-4 | 1 | ⬜ |
-| T-15 | A1 khách hàng & tài khoản | fe | FR-01.01, 01.04 | 02b F8 | T-14 | 0,5 | ⬜ |
-| T-16 | A2 dự án (thông tin, tài liệu, mẫu nhà, sao chép, chia sẻ) | fe | FR-01.02, 02.*, 03.01, 03.09, 09.02–03 | 02b F9 (+ tab Chia sẻ F15) | T-14, T-12 | 1 | ⬜ |
-| T-17 | A4 thư viện đồ | fe | FR-05.01 | 02b F10 | T-14, T-13 | 0,5 | ⬜ |
+| T-14 | app.html: layout, đăng nhập (C1), guard, ui kit | fe | FR-01.05 | 02b F7 | T-11, T-4 | 1 | ✅ |
+| T-15 | A1 khách hàng & tài khoản | fe | FR-01.01, 01.04 | 02b F8 | T-14 | 0,5 | ✅ |
+| T-16 | A2 dự án (thông tin, tài liệu, mẫu nhà, sao chép, chia sẻ) | fe | FR-01.02, 02.*, 03.01, 03.09, 09.02–03 | 02b F9 (+ tab Chia sẻ F15) | T-14, T-12 | 1 | ✅ |
+| T-17 | A4 thư viện đồ | fe | FR-05.01 | 02b F10 | T-14, T-13 | 0,5 | ✅ |
 | T-18 | A3 trình dựng: store, autosave, canvas, tầng, công cụ khung, hiệu chỉnh, bắt điểm, undo | fe | FR-03.02–03.08 | 02b F11 | T-16, T-12 | 3 | ⬜ |
 | T-19 | **Spike GLB** + model upload + worker optimize + report | be | FR-04.01–04.03 | 02a B6 | T-12 | 1,5 | ✅ |
 | T-20 | A3 tab Mô hình | fe | FR-04.01–04.03 | 02b F12 | T-18, T-19 (spike đạt) | 1 | ⬜ |
