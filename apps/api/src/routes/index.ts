@@ -9,6 +9,7 @@ import { registerProjects } from './projects.ts'
 import { registerLibrary } from './library.ts'
 import { registerModels } from './models.ts'
 import { registerWorkflow } from './workflow.ts'
+import { registerLeads } from './leads.ts'
 
 /** Đăng ký mọi nhóm API (thêm dần theo task trong 03-plan). */
 export const registerRoutes = async (app: FastifyInstance, ctx: Ctx) => {
@@ -21,4 +22,5 @@ export const registerRoutes = async (app: FastifyInstance, ctx: Ctx) => {
   await registerLibrary(app, ctx)
   await registerModels(app, ctx)
   await registerWorkflow(app, ctx)
+  await registerLeads(app, ctx)
 }

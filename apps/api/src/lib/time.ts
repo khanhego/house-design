@@ -24,3 +24,9 @@ export const businessDaysBetween = (from: Date, to: Date) => {
   }
   return count
 }
+
+/** "dd/MM/yyyy HH:mm" theo giờ Việt Nam (CSV). */
+export const vnDateTime = (iso: string) => {
+  const d = new Date(Date.parse(iso) + VN_OFFSET_MS).toISOString()
+  return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)} ${d.slice(11, 16)}`
+}

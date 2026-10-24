@@ -55,8 +55,8 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T-23 | A5 phiên bản & phát hành | fe | FR-08.01–08.08 | 02b F14 | T-22, T-18 | 1 | ✅ |
 | T-24 | C2 dự án của tôi + C3 xem trước & duyệt | fe | FR-08.03–05, 09.02–03 | 02b F15 | T-22, T-9, T-14 | 1 | ✅ |
 | **Lát 4 — Lead & thống kê** |||||||
-| T-25 | Leads + chống bot + E5 + CSV | be | API-62, 70…72 | 02a B10 | T-6, T-11 | 1 | ⬜ |
-| T-26 | Events + stats + CSV | be | API-63, 80, 81 | 02a B11 | T-6, T-11 | 0,5 | ⬜ |
+| T-25 | Leads + chống bot + E5 + CSV | be | API-62, 70…72 | 02a B10 | T-6, T-11 | 1 | ✅ |
+| T-26 | Events + stats + CSV | be | API-63, 80, 81 | 02a B11 | T-6, T-11 | 0,5 | ✅ |
 | T-27 | V3 lead + chống bot + V5 chính sách | fe | FR-10.01–06, NFR-04 | 02b F6 | T-25, T-9 | 0,5 | ⬜ |
 | T-28 | Tracker sự kiện | fe | FR-11.01 | 02b F5 | T-26, T-9 | 0,5 | ⬜ |
 | T-29 | C4 lead + C5 thống kê + A6 | fe | FR-10.05, 11.02–03 | 02b F16 | T-25, T-26, T-14 | 1 | ⬜ |
