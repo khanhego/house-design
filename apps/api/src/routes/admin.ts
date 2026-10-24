@@ -43,7 +43,9 @@ const clientOut = (ctx: Ctx, c: Client) => {
 /** API-10…13 (chỉ QTV). */
 export const registerAdmin = async (app: FastifyInstance, ctx: Ctx) => {
   app.get('/api/v1/clients', async (req) => {
-    requireUser(ctx, req, ['admin', 'producer'])
+    const u = requireUser(ctx, req, ['admin', 'producer'])
+    // người dựng chỉ cần tên để lọc dự án (R-G3-08, DEC-42)
+    if (u.role === 'producer') return { items: ctx.repos.clients.list().map((c) => ({ id: c.id, name: c.name })) }
     return { items: ctx.repos.clients.list().map((c) => clientOut(ctx, c)) }
   })
   app.post('/api/v1/clients', async (req, reply) => {
@@ -54,7 +56,7 @@ export const registerAdmin = async (app: FastifyInstance, ctx: Ctx) => {
     return reply.status(201).send({ client: clientOut(ctx, c) })
   })
   app.get<{ Params: { id: string } }>('/api/v1/clients/:id', async (req) => {
-    requireUser(ctx, req, ['admin', 'producer'])
+    requireUser(ctx, req, ['admin'])
     const c = ctx.repos.clients.get(req.params.id)
     if (!c) throw notFound()
     return { client: clientOut(ctx, c), users: ctx.repos.users.list(c.id).map((u) => publicUser(ctx, u)) }

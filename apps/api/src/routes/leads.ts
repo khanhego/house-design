@@ -54,7 +54,7 @@ export const registerLeads = async (app: FastifyInstance, ctx: Ctx) => {
   const byIp = slidingWindow(20, 10 * 60_000)
   const eventsByIp = slidingWindow(120, 60_000)
 
-  app.post('/api/v1/public/leads', async (req, reply) => {
+  app.post('/api/v1/public/leads', { bodyLimit: 16 * 1024 }, async (req, reply) => {
     const b = parse(LeadBody, req.body)
     // honeypot: trả như thành công để bot không nhận ra, không lưu
     if (b.website) return reply.status(201).send({ lead: { id: 'led_ignored' }, merged: false })

@@ -54,7 +54,9 @@ export const EditorPage = ({ me }: { me: Me }) => {
 
   const house = useQuery({ queryKey: ['house', houseId], queryFn: () => api<{ house: HouseRow; latestVersion: HouseRow['latestVersion']; openVersionId: string | null; published: HouseRow['published'] }>('GET', `houses/${houseId}`) })
   const versionId = house.data?.openVersionId ?? house.data?.latestVersion?.id ?? null
-  const version = useQuery({ queryKey: ['version', versionId], queryFn: () => api<VersionDetail>('GET', `versions/${versionId}`), enabled: !!versionId, staleTime: Infinity })
+  const version = useQuery({ queryKey: ['version', versionId], queryFn: () => api<VersionDetail>('GET', `versions/${versionId}`), enabled: !!versionId,
+    // luôn lấy bản mới khi mở trình dựng, không giữ cache sau khi rời (R-G3-04); không tự tải lại giữa lúc đang sửa
+    staleTime: 0, gcTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: false, refetchOnReconnect: false })
   const projectId = house.data?.house.projectId
   const inputs = useQuery({ queryKey: ['files', projectId], queryFn: () => api<{ items: FileOut[] }>('GET', `projects/${projectId}/files`), enabled: !!projectId })
 

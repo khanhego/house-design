@@ -175,6 +175,8 @@ export const setLeadStatus = (ctx: Ctx, user: AuthUser, id: string, status: 'new
 export const deleteLead = (ctx: Ctx, user: AuthUser, id: string) => {
   loadScoped(ctx, user, id)
   ctx.db.tx(() => {
+    // email chưa gửi thì huỷ luôn, không gửi bản rỗng (R-G3-07)
+    ctx.db.run("UPDATE outbox_emails SET status = 'failed', last_error = 'lead deleted' WHERE lead_id = ? AND status = 'queued'", id)
     ctx.db.run("UPDATE outbox_emails SET data_json = '{}' WHERE lead_id = ?", id)
     ctx.db.run('DELETE FROM leads WHERE id = ?', id)
   })

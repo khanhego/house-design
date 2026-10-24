@@ -15,6 +15,7 @@ let projectId = ''
 let houseId = ''
 let versionId = ''
 const png = Buffer.from('89504e470d0a1a0a', 'hex')
+const subOf = (vid: string) => t.ctx.repos.versions.get(vid)!.currentSubmissionId!
 
 /** Lưu một tài liệu đủ điều kiện gửi duyệt (có ảnh nền để kiểm R-01). */
 const readyDoc = async (vid: string) => {
@@ -83,25 +84,37 @@ describe('workflow (API-39, 50…55)', () => {
     expect(p.status).toBe(200)
     expect(p.json.preview).toMatchObject({ state: 'pending_review', submittedByName: 'admin' })
     expect((await t.call('GET', `/api/v1/versions/${versionId}/preview`, { cookie: approverB })).status).toBe(403)
-    expect((await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverB, body: { decision: 'approved' } })).status).toBe(403)
+    expect((await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverB, body: { decision: 'approved', submissionId: subOf(versionId) } })).status).toBe(403)
   })
 
   it('yêu cầu sửa cần ghi chú ≥ 10 ký tự; có ghi chú → về Đang dựng (TC-08.05)', async () => {
-    const short = await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'changes_requested', note: 'sửa đi' } })
+    const short = await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'changes_requested', note: 'sửa đi', submissionId: subOf(versionId) } })
     expect(short.json.error.code).toBe('VALIDATION_ERROR')
-    const r = await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'changes_requested', note: 'Đổi phòng khách thành phòng làm việc', targets: [{ floorId: 'f1' }] } })
+    const r = await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'changes_requested', note: 'Đổi phòng khách thành phòng làm việc', targets: [{ floorId: 'f1' }], submissionId: subOf(versionId) } })
     expect(r.status, r.body).toBe(200)
     expect(r.json.version.state).toBe('draft')
-    expect((await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'approved' } })).json.error.code).toBe('INVALID_STATE')
+    expect((await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'approved', submissionId: 'sub_cu' } })).json.error.code).toBe('INVALID_STATE')
+  })
+
+  it('duyệt gắn với lần gửi đã xem: rút về rồi gửi lại → quyết định theo lần cũ bị từ chối (R-G3-03)', async () => {
+    expect((await t.call('POST', `/api/v1/versions/${versionId}/submit`, { cookie: admin })).status).toBe(200)
+    const seen = (await t.call('GET', `/api/v1/versions/${versionId}/preview`, { cookie: approverA })).json.preview.submissionId
+    expect(seen).toBe(subOf(versionId))
+    await t.call('POST', `/api/v1/versions/${versionId}/withdraw`, { cookie: admin })
+    await t.call('POST', `/api/v1/versions/${versionId}/submit`, { cookie: admin })
+    const stale = await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'approved', submissionId: seen } })
+    expect(stale.status).toBe(409)
+    expect((await t.call('POST', `/api/v1/versions/${versionId}/review`, { cookie: approverA, body: { decision: 'approved' } })).status).toBe(400)
+    await t.call('POST', `/api/v1/versions/${versionId}/withdraw`, { cookie: admin })
   })
 
   it('duyệt thay cần bằng chứng của dự án; duyệt → phát hành → công khai (TC-08.04, 08.06, 08.07)', async () => {
     expect((await t.call('POST', `/api/v1/versions/${versionId}/submit`, { cookie: admin })).status).toBe(200)
     expect((await t.call('POST', `/api/v1/versions/${versionId}/publish`, { cookie: admin })).json.error.code).toBe('INVALID_STATE')
-    const noEv = await t.call('POST', `/api/v1/versions/${versionId}/review-on-behalf`, { cookie: admin, body: { decision: 'approved', note: 'Duyệt qua Zalo 24/10', evidenceFileId: 'fil_khong_co' } })
+    const noEv = await t.call('POST', `/api/v1/versions/${versionId}/review-on-behalf`, { cookie: admin, body: { decision: 'approved', note: 'Duyệt qua Zalo 24/10', evidenceFileId: 'fil_khong_co', submissionId: subOf(versionId) } })
     expect(noEv.json.error.code).toBe('VALIDATION_ERROR')
     const ev = await upload(t, '/api/v1/files', admin, { name: 'zalo.png', content: png }, { kind: 'evidence', projectId })
-    const ok = await t.call('POST', `/api/v1/versions/${versionId}/review-on-behalf`, { cookie: admin, body: { decision: 'approved', note: 'Duyệt qua Zalo 24/10', evidenceFileId: ev.json.file.id } })
+    const ok = await t.call('POST', `/api/v1/versions/${versionId}/review-on-behalf`, { cookie: admin, body: { decision: 'approved', note: 'Duyệt qua Zalo 24/10', evidenceFileId: ev.json.file.id, submissionId: subOf(versionId) } })
     expect(ok.status, ok.body).toBe(200)
     expect(ok.json.review.onBehalf).toBe(true)
     expect(ok.json.version.state).toBe('approved')
@@ -116,7 +129,7 @@ describe('workflow (API-39, 50…55)', () => {
     const nv = await t.call('POST', `/api/v1/houses/${houseId}/versions`, { cookie: producer })
     const v2 = nv.json.version.id
     expect((await t.call('POST', `/api/v1/versions/${v2}/submit`, { cookie: admin })).status).toBe(200)
-    expect((await t.call('POST', `/api/v1/versions/${v2}/review`, { cookie: approverA, body: { decision: 'approved' } })).status).toBe(200)
+    expect((await t.call('POST', `/api/v1/versions/${v2}/review`, { cookie: approverA, body: { decision: 'approved', submissionId: subOf(v2) } })).status).toBe(200)
     const pub = await t.call('POST', `/api/v1/versions/${v2}/publish`, { cookie: admin })
     expect(pub.json.previous).toEqual({ id: versionId, state: 'superseded' })
     expect((await t.call('GET', '/api/v1/public/projects/du-an-wf/houses/mau-wf')).json.version.number).toBe(2)

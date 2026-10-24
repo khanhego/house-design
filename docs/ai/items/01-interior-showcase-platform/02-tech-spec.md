@@ -451,9 +451,10 @@ Giới hạn tải lên một tệp: **200 MB** (UI khuyến cáo ≤ 100 MB; R-
 // POST /versions/:id/submit
 // 200 { "version": { state: "pending_review", submittedAt, … } }
 // POST /versions/:id/review   (approver)
-{ "decision": "changes_requested", "note": "Đổi phòng ngủ 2 thành phòng làm việc", "targets": [ { "floorId": "flr_2", "roomId": "rom_5" } ] }
+{ "decision": "changes_requested", "note": "Đổi phòng ngủ 2 thành phòng làm việc", "targets": [ { "floorId": "flr_2", "roomId": "rom_5" } ],
+  "submissionId": "sub_…" }   // bắt buộc (DEC-44): lần gửi người duyệt đã xem (API-39 preview.submissionId); khác lần gửi hiện tại → 409 INVALID_STATE
 // 200 { "review": { id, decision, note, userId, createdAt }, "version": { state: "draft" } }
-// POST /versions/:id/review-on-behalf  { "decision": "approved", "note": "Duyệt qua Zalo 24/10", "evidenceFileId": "fil_12" }
+// POST /versions/:id/review-on-behalf  { "decision": "approved", "note": "Duyệt qua Zalo 24/10", "evidenceFileId": "fil_12", "submissionId": "sub_…" }
 // POST /versions/:id/publish → 200 { "house": { publishedVersionId }, "version": { state: "published" }, "previous": { id, state: "superseded" } }
 // POST /houses/:id/unpublish → 200 { "house": { publishedVersionId: null }, "version": { state: "unpublished" } }
 ```
@@ -475,7 +476,7 @@ Giới hạn tải lên một tệp: **200 MB** (UI khuyến cáo ≤ 100 MB; R-
   "branding": { "name": "Sunrise Land", "logoUrl", "brandColor": "#0E6B5C", "showPoweredBy": true },
   "houses": [ { "slug", "name", "houseType", "declaredArea", "bedrooms", "bathrooms", "floors": 4, "coverUrl" } ] }
 
-// GET /public/projects/sunrise-garden/houses/biet-thu-b2   (API-39 trả cùng shape, thêm "preview": { versionNumber, state, submittedAt, submittedByName })
+// GET /public/projects/sunrise-garden/houses/biet-thu-b2   (API-39 trả cùng shape, thêm "preview": { versionNumber, state, submissionId, submittedAt, submittedByName })
 { "project": { … }, "branding": { … }, "antiBot": { … },
   "house": { "slug", "name", "houseType", "declaredArea", "bedrooms", "bathrooms", "description" },   // từ snapshot
   "version": { "number": 3, "publishedAt" },

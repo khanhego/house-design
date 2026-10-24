@@ -274,7 +274,7 @@ export interface PublicHousePayload {
   version: { number: number; publishedAt: string | null }
   document: HouseDocument
   resolved: Snapshot['resolved']
-  preview?: { versionNumber: number; state: VersionState; submittedAt: string | null; submittedByName: string | null }
+  preview?: { versionNumber: number; state: VersionState; submissionId: string | null; submittedAt: string | null; submittedByName: string | null }
 }
 
 export interface PublicHouseCard {

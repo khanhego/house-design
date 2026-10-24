@@ -47,6 +47,14 @@ export const useAutosave = (onChecks: (c: Check[]) => void) => {
     }
   }, [doc, dirty, onChecks])
 
+  // rời trình dựng trong app (không unload trang) khi còn thay đổi chưa lưu → gửi ngay (R-G3-05)
+  useEffect(() => () => {
+    const s = useEditor.getState()
+    if (!s.doc || !s.dirty || s.saveState === 'conflict' || s.saveState === 'locked' || inflight.current) return
+    void api('PUT', `versions/${s.versionId}/document`, { document: s.doc }, { ifMatch: s.revision }).catch(() => {})
+    useEditor.setState({ dirty: false })
+  }, [])
+
   // chặn rời trang khi còn thay đổi chưa lưu
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => {

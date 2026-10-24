@@ -39,12 +39,13 @@
 | 8 | Implement (theo `03`) | ✅ CP8 (agent) | 2026-10-24 | nhánh `feat/01-interior-showcase-platform`; T-1…T-30 ✅; test: core 25 · api 67 · web 4 · e2e 2 |
 | 8c | Tài liệu nghiệp vụ lát 1–4 | ✅ CP8c | 2026-10-24 | `docs/nghiep-vu/01-interior-showcase-platform/lat-0{1..4}-*.md`; lát 5 (E2E, profile) không có nghiệp vụ mới — DEC-41 |
 | 9 | Commit | ✅ CP9 | 2026-10-24 | chỉ commit cục bộ trên nhánh, **chưa push / chưa PR** (cần user) |
-| 10 | Review code (subagent) | ▶ đang làm | 2026-10-24 | |
+| 10 | Review code (subagent) | ✅ G3 (agent, DEC-45) | 2026-10-24 | Đạt có ĐK: 0 blocker, 5 major, 4 minor, 3 nit → đã sửa R-G3-01…12 + 8 test hồi quy; api 75 test, e2e 2 ✅ |
+| 11 | Chạy test `04a` | ⬜ | | |
 
 ## NOW
 | Owner tiếp | Việc tiếp | Skill |
 |---|---|---|
-| Lead (subagent) | Review code nhánh → G3 | ai-lead-review |
+| QA | Chạy bộ `04` → `04a`, chốt G4 | ai-qa-run-tests |
 
 ## Phản hồi giữa các vai
 | Từ | Tới | Nội dung | Trạng thái |
@@ -73,6 +74,10 @@
 | DEC-39 | C3 khi bản về Đang dựng | Người duyệt thấy thông báo theo metadata, không gọi API-39 (tránh 403 giả) | R-11 | Agent | 2026-10-24 |
 | DEC-40 | Gộp lead | Lần gửi sau không có tầng/phòng thì giữ ngữ cảnh cũ; trường trống giữ giá trị cũ; trạng thái về "Mới" | Không mất thông tin, sales biết khách quay lại | Agent | 2026-10-24 |
 | DEC-41 | Lát 5 | Không viết tài liệu nghiệp vụ riêng (chỉ E2E + profile/system-map) | Không có quy tắc nghiệp vụ mới | Agent | 2026-10-24 |
+| DEC-42 | Quyền xem khách hàng | Người dựng chỉ nhận `{id, name}` ở GET /clients (lọc dự án); chi tiết khách hàng chỉ QTV (R-G3-08) | Ma trận API-10/11 | Agent | 2026-10-24 |
+| DEC-43 | IP sau proxy | `TRUST_PROXY_HOPS` (mặc định 0 = không tin X-Forwarded-For); production đặt đúng số proxy (R-G3-01) | Chặn giả IP vượt giới hạn tần suất | Agent | 2026-10-24 |
+| DEC-44 | Change request API-52/53 | Thêm `submissionId` bắt buộc; API-39 trả `preview.submissionId`. Quyết định chỉ ghi khi trùng lần gửi hiện tại (R-G3-03) | Đúng ý DEC-30: duyệt gắn với nội dung đã xem | Agent | 2026-10-24 |
+| DEC-45 | G3 | Duyệt sau khi sửa toàn bộ 12 phát hiện | Lint, 104 test đơn vị/tích hợp và 2 E2E xanh | Agent | 2026-10-24 |
 | DEC-37 | Spike GLB (ĐK của DEC-34) | ĐẠT: 2.000 mesh/40 vật liệu/30 item_ (15 lồng 3 cấp)/60 wall_ → 1,27 MB→52 KB, giữ đủ tên, phần không tên 40 draw call, tổng 220 (60 wall_ tốn draw call riêng → khuyến nghị gộp tường theo phòng). Spike phát hiện lỗi `join(keepNamed)` giữ mesh có tên → đã sửa. BE-R4 (file thật) vẫn mở | Mở khoá F12/F13 | Agent | 2026-10-24 |
 | DEC-2 | Quy trình chuẩn không có bước market research | Thêm `00a-requirement-analysis.md`, `00b-market-research.md` trong thư mục item, làm input cho SRS | User yêu cầu thứ tự: phân tích → research → SRS | khanhtt | 2026-10-24 |
 

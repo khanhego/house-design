@@ -6,7 +6,7 @@ import { canReadFile } from '../services/fileAccess.ts'
 /** GET /files/:storageKey — quyền theo 02 §6.2; không tiết lộ file tồn tại hay không (404). */
 export const registerFiles = async (app: FastifyInstance, ctx: Ctx) => {
   app.get('/files/*', async (req, reply) => {
-    const key = decodeURIComponent((req.params as { '*': string })['*'] ?? '')
+    const key = (req.params as { '*': string })['*'] ?? ''
     const file = key ? ctx.repos.files.byKey(key) : undefined
     const nf = () => reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Không tìm thấy' } })
     if (!file || !ctx.storage.exists(file.storageKey)) return nf()

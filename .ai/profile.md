@@ -29,7 +29,7 @@
 | Schema dữ liệu | `apps/api/src/db/migrations/*.sql` (SQLite) · tài liệu nhà: `packages/core/src/schema.ts` (ADR-001) |
 | Interface / API | `apps/api/src/routes/*.ts` (contract: item 01 `02-tech-spec.md` §6) |
 | Màn hình / route UI | `apps/web/src/viewer/main.tsx` (`/v/*`) · `apps/web/src/app/main.tsx` (`/studio/*`, `/portal/*`) |
-| Cấu hình / env | `apps/api/src/config.ts` (PORT, DATA_DIR, WEB_DIST, PUBLIC_BASE_URL, SMTP_URL, FORM_TOKEN_SECRET, TURNSTILE_*), `apps/web/vite.config.ts` |
+| Cấu hình / env | `apps/api/src/config.ts` (PORT, DATA_DIR, WEB_DIST, PUBLIC_BASE_URL, SMTP_URL, FORM_TOKEN_SECRET, TURNSTILE_*, TRUST_PROXY_HOPS), `apps/web/vite.config.ts` |
 | Tài liệu sẵn có | `docs/ai/system/SRS.md`, ADR ở `docs/ai/system/decisions/`, nghiệp vụ ở `docs/nghiep-vu/` |
 
 ## 4. Quy trình mã nguồn
@@ -71,4 +71,4 @@
 - Prototype `src/` đã gỡ (DEC-17); code production nằm ở `apps/*`, `packages/core`.
 - Import trong TS phải có đuôi `.ts`/`.tsx` (Node type stripping, `erasableSyntaxOnly`) — không dùng enum/namespace (DEC-36).
 - Một tiến trình server (ADR-002): giới hạn tần suất và hàng đợi job nằm trong tiến trình/SQLite; nhiều server cần thiết kế lại.
-- Baseline 2026-10-24 (sau T-30): build ✅ · lint (tsc) ✅ · test: core 25, api 67, web 4 ✅ · e2e 2 ✅.
+- Baseline 2026-10-24 (sau T-30): build ✅ · lint (tsc) ✅ · test: core 25, api 75, web 4 ✅ · e2e 2 ✅.

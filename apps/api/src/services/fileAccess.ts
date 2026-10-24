@@ -9,23 +9,17 @@ import { availability } from './access.ts'
  */
 export const canReadFile = (ctx: Ctx, user: AuthUser | null, file: FileRow): { ok: boolean; public: boolean } => {
   const db = ctx.db
-  const isPublishedKey = !!db.get(
-    `SELECT 1 FROM submission_files sf
+  // tệp thư viện dùng chung nhiều dự án: chỉ cần một dự án đang phát hành và còn khả dụng (R-G3-02)
+  const publishedIn = db.all<{ project_id: string }>(
+    `SELECT DISTINCT h.project_id FROM submission_files sf
        JOIN submissions s ON s.id = sf.submission_id
        JOIN versions v ON v.id = s.version_id AND v.current_submission_id = s.id AND v.state = 'published'
        JOIN houses h ON h.id = v.house_id
-       JOIN projects p ON p.id = h.project_id
-      WHERE sf.storage_key = ? LIMIT 1`,
+      WHERE sf.storage_key = ?`,
     file.storageKey,
   )
-  if (isPublishedKey) {
-    const row = db.get<{ project_id: string }>(
-      `SELECT h.project_id FROM submission_files sf JOIN submissions s ON s.id = sf.submission_id
-         JOIN versions v ON v.id = s.version_id JOIN houses h ON h.id = v.house_id
-        WHERE sf.storage_key = ? AND v.state = 'published' LIMIT 1`,
-      file.storageKey,
-    )
-    const project = row ? ctx.repos.projects.get(row.project_id) : undefined
+  for (const { project_id } of publishedIn) {
+    const project = ctx.repos.projects.get(project_id)
     if (project && availability(ctx.repos.clients.get(project.clientId), project).available) return { ok: true, public: true }
   }
   if (file.kind === 'logo') {

@@ -79,7 +79,8 @@ export const ReviewPage = ({ me }: { me: Me }) => {
   const send = async (body: { decision: 'approved' | 'changes_requested'; note?: string; targets?: { floorId: string; roomId?: string }[] }) => {
     setBusy(true)
     try {
-      await api('POST', `versions/${versionId}/review`, body)
+      // gắn quyết định với đúng lần gửi đang xem (R-G3-03)
+      await api('POST', `versions/${versionId}/review`, { ...body, submissionId: data.preview.submissionId })
       toast(body.decision === 'approved' ? `Đã duyệt phiên bản ${m.number}` : 'Đã gửi yêu cầu sửa')
       setDialog(null)
       await reload()

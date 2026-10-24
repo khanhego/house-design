@@ -5,6 +5,7 @@ import type { Ctx } from '../context.ts'
 import { AppError } from '../lib/errors.ts'
 import { createSession, currentUser, destroySession, hashPassword, newToken, requireUser, revokeSessions, sha256, verifyPassword } from '../lib/auth.ts'
 import { parse } from '../lib/validate.ts'
+import { slidingWindow } from '../lib/rateLimit.ts'
 import { enqueueEmail } from '../services/mail.ts'
 import type { User } from '../repos/types.ts'
 
@@ -32,11 +33,17 @@ export const issueToken = (ctx: Ctx, userId: string, kind: 'invite' | 'reset') =
 
 /** API-01…05. */
 export const registerAuth = async (app: FastifyInstance, ctx: Ctx) => {
+  // băm giả để email không tồn tại tốn cùng thời gian (R-G3-10)
+  const dummyHash = await hashPassword(newToken())
+  const forgotByEmail = slidingWindow(3, 3600_000)
   app.post('/api/v1/auth/login', async (req, reply) => {
     const b = parse(z.object({ email: z.string().email().max(200), password: z.string().min(1).max(200) }), req.body)
     const u = ctx.repos.users.byEmail(b.email)
     const bad = () => new AppError(401, 'INVALID_CREDENTIALS', 'Email hoặc mật khẩu chưa đúng.')
-    if (!u) throw bad()
+    if (!u) {
+      await verifyPassword(b.password, dummyHash)
+      throw bad()
+    }
     if (u.lockedUntil && u.lockedUntil > nowIso())
       throw new AppError(423, 'ACCOUNT_LOCKED', 'Tài khoản tạm khoá 15 phút do nhập sai nhiều lần.', { extra: { lockedUntil: u.lockedUntil } })
     const ok = await verifyPassword(b.password, u.passwordHash)
@@ -68,7 +75,8 @@ export const registerAuth = async (app: FastifyInstance, ctx: Ctx) => {
   app.post('/api/v1/auth/password/forgot', async (req, reply) => {
     const b = parse(z.object({ email: z.string().email().max(200) }), req.body)
     const u = ctx.repos.users.byEmail(b.email)
-    if (u && u.status === 'active') {
+    // tối đa 3 email E2 / giờ / địa chỉ; vẫn trả 204 để không lộ (R-G3-12)
+    if (u && u.status === 'active' && forgotByEmail.hit(u.email.toLowerCase())) {
       const token = issueToken(ctx, u.id, 'reset')
       enqueueEmail(ctx, u.email, 'E2', { name: u.name, token, role: u.role })
     }

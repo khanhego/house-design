@@ -95,6 +95,11 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
   const errs: Record<string, string> = {}
   const floorIds = new Set(doc.floors.map((f) => f.id))
   const modelIds = new Set<string>()
+  // loại tệp hợp lệ theo vị trí (R-G3-06): ảnh nền chỉ là tài liệu đầu vào, còn lại là ảnh công khai được
+  const fileKinds = new Map<string, FileKind[]>()
+  const want = (id: string, kinds: FileKind[]) => fileKinds.set(id, kinds)
+  if (doc.coverFileId) want(doc.coverFileId, ['cover'])
+  doc.gallery.forEach((id) => want(id, ['gallery_image', 'cover']))
   const fileIds = new Set<string>([...(doc.coverFileId ? [doc.coverFileId] : []), ...doc.gallery])
   const libIds = new Set<string>()
   doc.floors.forEach((f, fi) => {
@@ -106,11 +111,11 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
       if (s.toFloorId && !floorIds.has(s.toFloorId)) errs[`floors.${fi}.stairs.${si}.toFloorId`] = 'Tầng nối không tồn tại'
     })
     if (f.modelRef) modelIds.add(f.modelRef.modelAssetId)
-    if (f.underlay) fileIds.add(f.underlay.fileId)
+    if (f.underlay) (fileIds.add(f.underlay.fileId), want(f.underlay.fileId, ['input']))
     f.items.forEach((it) => {
       if ('libraryItemId' in it.source) libIds.add(it.source.libraryItemId)
       else modelIds.add(it.source.modelNode.modelAssetId)
-      it.info?.imageFileIds?.forEach((id) => fileIds.add(id))
+      it.info?.imageFileIds?.forEach((id) => (fileIds.add(id), want(id, ['item_image'])))
     })
   })
   if (doc.exterior?.modelRef) modelIds.add(doc.exterior.modelRef.modelAssetId)
@@ -123,7 +128,11 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
   const lib = ctx.repos.library.byIds([...libIds])
   for (const id of libIds) if (!lib.get(id) || lib.get(id)!.archived) errs[`library.${id}`] = 'Đồ thư viện không tồn tại hoặc đã lưu trữ'
   const fs = ctx.repos.files.byIds([...fileIds])
-  for (const id of fileIds) if (!fs.get(id) || fs.get(id)!.projectId !== projectId) errs[`files.${id}`] = 'Tệp không thuộc dự án'
+  for (const id of fileIds) {
+    const f = fs.get(id)
+    if (!f || f.projectId !== projectId) errs[`files.${id}`] = 'Tệp không thuộc dự án'
+    else if (fileKinds.has(id) && !fileKinds.get(id)!.includes(f.kind)) errs[`files.${id}`] = 'Loại tệp không đúng chỗ dùng'
+  }
   if (Object.keys(errs).length) throw new AppError(400, 'DOCUMENT_INVALID', 'Tài liệu mẫu nhà không hợp lệ', { fields: errs })
 }
 

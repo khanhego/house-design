@@ -238,7 +238,7 @@ const OnBehalfDialog = ({ v, projectId, onClose, onDone }: { v: VersionItem; pro
     setBusy(true)
     try {
       const ev = await upload<{ file: { id: string } }>('files', file!, { kind: 'evidence', projectId })
-      await api('POST', `versions/${v.id}/review-on-behalf`, { decision, note: note.trim(), evidenceFileId: ev.file.id })
+      await api('POST', `versions/${v.id}/review-on-behalf`, { decision, note: note.trim(), evidenceFileId: ev.file.id, submissionId: v.submissions.at(-1)?.id })
       toast(decision === 'approved' ? `Đã ghi nhận duyệt phiên bản ${v.number}` : 'Đã ghi nhận yêu cầu sửa')
       onDone()
     } catch (err) {

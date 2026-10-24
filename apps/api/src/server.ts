@@ -38,7 +38,7 @@ export const buildApp = async (cfg: Config, opts: { dbFile?: string; logger?: bo
   const ctx = createCtx(cfg, db, storage)
 
   const app = Fastify({
-    trustProxy: true,
+    trustProxy: cfg.trustProxyHops > 0 ? (_addr: string, hop: number) => hop < cfg.trustProxyHops : false,
     bodyLimit: 6 * 1024 * 1024,
     logger:
       opts.logger === false

@@ -25,6 +25,7 @@ const ReviewBody = z.object({
   decision: z.enum(['approved', 'changes_requested']),
   note: z.string().max(2000).nullable().optional(),
   targets: Targets,
+  submissionId: z.string().min(1).max(40),
 }).strict()
 const OnBehalfBody = ReviewBody.extend({ note: z.string().max(2000), evidenceFileId: z.string().min(1) })
 
@@ -38,12 +39,14 @@ export const registerWorkflow = async (app: FastifyInstance, ctx: Ctx) => {
     let snapshot: Snapshot
     let submittedAt: string | null = null
     let submittedBy: string | null = null
+    let submissionId: string | null = null
     if (v.state === 'draft') snapshot = buildSnapshot(ctx, v.document, house).snapshot
     else {
       const sub = (v.currentSubmissionId && ctx.repos.submissions.get(v.currentSubmissionId)) || ctx.repos.submissions.lastForVersion(v.id)
       if (!sub) throw notFound()
       snapshot = JSON.parse(sub.snapshot) as Snapshot
       submittedAt = sub.submittedAt
+      submissionId = sub.id
       submittedBy = sub.submittedBy
     }
     const client = ctx.repos.clients.get(project.clientId)!
@@ -55,7 +58,7 @@ export const registerWorkflow = async (app: FastifyInstance, ctx: Ctx) => {
       version: { number: v.number, publishedAt: v.publishedAt },
       document: { ...snapshot.document, floors: sortedFloors(snapshot.document) },
       resolved: publicResolved(snapshot),
-      preview: { versionNumber: v.number, state: v.state, submittedAt, submittedByName: submittedBy ? ctx.repos.users.get(submittedBy)?.name ?? null : null },
+      preview: { versionNumber: v.number, state: v.state, submissionId, submittedAt, submittedByName: submittedBy ? ctx.repos.users.get(submittedBy)?.name ?? null : null },
     }
     return out
   })

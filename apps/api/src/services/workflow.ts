@@ -58,6 +58,8 @@ export interface ReviewInput {
   decision: Review['decision']
   note?: string | null
   targets?: Review['targets']
+  /** lần gửi người duyệt đã xem; khác lần gửi hiện tại → 409 (R-G3-03, DEC-30) */
+  submissionId?: string
 }
 
 export const review = (ctx: Ctx, versionId: string, user: AuthUser, input: ReviewInput, onBehalf?: { evidenceFileId: string | null }) => {
@@ -68,6 +70,7 @@ export const review = (ctx: Ctx, versionId: string, user: AuthUser, input: Revie
     throw validation({ note: 'Ghi chú cần ít nhất 10 ký tự' })
   const subId = v.currentSubmissionId
   if (!subId) throw invalidState(v.state)
+  if (input.submissionId && input.submissionId !== subId) throw invalidState(v.state)
   return ctx.db.tx(() => {
     const sub = ctx.repos.submissions.get(subId)!
     let r: Review
