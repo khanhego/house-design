@@ -3,3 +3,4 @@
 | Lát | Tài liệu | Trạng thái |
 |---|---|---|
 | 1 | [Xem nhà 3D nhiều tầng và mặt bằng có kích thước](lat-01-xem-nha-3d.md) | Draft |
+| 2 | [Công cụ nội bộ và trình dựng nhà](lat-02-cong-cu-dung-nha.md) | Draft |
