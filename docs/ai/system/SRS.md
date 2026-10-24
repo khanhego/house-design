@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Phiên bản | 0.3 — CR-1: thêm màn V5 Chính sách dữ liệu (NFR-04) phát hiện ở review G2 |
+| Phiên bản | 0.4 — CR-2 (Draft, chờ duyệt): thêm M12 Tham quan ảnh thật (item 02) · 0.3 — CR-1: thêm màn V5 Chính sách dữ liệu (NFR-04) |
 | Trạng thái | Approved (G1 ✅ 2026-10-24 · khanhtt) |
 | Owner (PO) | khanhtt |
 | Reviewer | khanhtt (quy mô S — tự soát) |
@@ -350,7 +350,23 @@ flowchart TD
 | FR-11.02 | Hệ thống phải hiện báo cáo theo dự án và khoảng ngày: lượt xem, người xem duy nhất, thời gian xem trung bình, top mẫu nhà, top phòng, top đồ, số lead, tỉ lệ lead/lượt xem, theo nguồn truy cập, theo loại thiết bị | M | 1 | P5 |
 | FR-11.03 | Hệ thống phải cho tải báo cáo dạng CSV | S | 1 | P5 |
 
-### 5.12 Ma trận phân quyền (Phase 1)
+### 5.12 M12 — Tham quan ảnh thật *(CR-2, item 02 — chờ G1)*
+
+Chế độ xem thứ hai của mẫu nhà: chuỗi ảnh chụp nhà thật theo đường đi, người xem bấm Tiếp để chuyển cảnh. Đặc tả đầy đủ (FR-12.01–12.15, BR-T1–T5, NFR-T1–T4, kịch bản chụp) ở `items/02-real-photo-tour/01-srs.md`.
+
+| ID | Yêu cầu (tóm tắt) | Ưu tiên | Phase |
+|---|---|:---:|:---:|
+| FR-12.01–12.04 | Tour 2–60 cảnh; tải nhiều ảnh, tự xếp theo số tên tệp; đổi thứ tự; tên, mô tả, điểm đi tiếp, phòng liên kết | M | 1 |
+| FR-12.05 | Chuyển cảnh mô phỏng (phóng vào điểm đi tiếp + mờ dần) ≤ 1,2 s | M | 1 |
+| FR-12.06 | Clip chuyển cảnh tải lên cho từng cặp | S | 1 |
+| FR-12.07–12.09 | Trình xem: Tiếp/Lùi/chấm/phím/vuốt/tự chạy, thẻ thông tin, liên kết phòng 3D, tải trước | M | 1 |
+| FR-12.10 | Mẫu nhà chỉ có tour phát hành được | M | 1 |
+| FR-12.11–12.13 | Lead/thống kê theo cảnh · xem thử chuyển cảnh · kịch bản chụp PDF | S/M | 1 |
+| FR-12.14 | Tự gọi AI tạo clip chuyển cảnh | C | 2 |
+
+**Sửa:** FR-08.02 — gửi duyệt khi có ≥ 1 tầng hợp lệ **hoặc** tour ≥ 2 cảnh. FR-06.01 — thẻ mẫu nhà có nhãn "3D" / "Ảnh thật".
+
+### 5.13 Ma trận phân quyền (Phase 1)
 
 | Chức năng | QTV | Người dựng | Người duyệt (khách hàng) | Người xem |
 |---|:---:|:---:|:---:|:---:|
@@ -627,6 +643,8 @@ flowchart LR
 | Nội bộ | A4 Thư viện đồ | Quản lý đồ dùng chung | QTV, Người dựng | 05.01 |
 | Nội bộ | **A5** Phiên bản & phát hành | Gửi duyệt, ghi nhận duyệt thay, phát hành, gỡ, khôi phục | QTV | 08.01–08.08 |
 | Nội bộ | A6 Lead & thống kê toàn hệ thống | Như C4, C5 nhưng mọi khách hàng | QTV | 10.05, 11.02 |
+| Web công khai | **V6** Tour ảnh thật *(CR-2)* | Tab "Ảnh thật" trong V2 hoặc toàn trang khi mẫu nhà chỉ có tour | Người xem | 12.05–12.11 |
+| Nội bộ | **A7** Tour ảnh *(CR-2)* | Tab "Ảnh thật" trong A3: tải ảnh, thứ tự, điểm đi tiếp, clip, xem thử, kịch bản chụp | QTV, Người dựng | 12.01–12.06, 12.12, 12.13 |
 | Email | E1 Mời tài khoản · E2 Đặt lại mật khẩu · E3 Gửi duyệt · E4 Nhắc duyệt · E5 Lead mới | | | 01.05, 08.03, 08.09, 10.04 |
 
 ### 10.4 Đặc tả màn chính
@@ -954,6 +972,7 @@ Mobile 360 px
 | Giai đoạn | Nội dung (module / FR) | Điều kiện chuyển giai đoạn |
 |---|---|---|
 | **Phase 1 — MVP xem 3D đa loại nhà** | M01–M06, M07 (FR-07.01–07.05), M08–M11 — mọi FR có cột Phase = 1 | Đạt AC-01…AC-15; 1 khách hàng pilot phát hành ≥ 2 mẫu nhà thật |
+| **Phase 1b — Tham quan ảnh thật** *(CR-2)* | M12 FR-12.01–12.13 | G1 item 02; chốt Q-1 công nghệ chuyển cảnh |
 | **Phase 2 — Bộ bản vẽ đầy đủ** | FR-07.06–07.10 (trần, điện, TCVN, DXF, đính kèm, mặt đứng), FR-03.10 (nhập DXF) | Pilot phản hồi về giá trị bản vẽ (AS-03) |
 | **Phase 3 — Bán hàng sâu** | FR-05.06 (giá, tổng giá), FR-09.05 (tên miền riêng), FR-10.07 (CRM/Zalo OA); chọn căn theo bảng hàng/sa bàn dự án (FR mới, viết khi tới) | Doanh thu từ ≥ 3 khách hàng |
 
@@ -986,6 +1005,7 @@ Mobile 360 px
 | DEC-10 | Bản vẽ theo phase | P1: mặt bằng cơ bản có kích thước + PDF; P2: đủ bộ (trần, điện, TCVN, DXF, đính kèm) | User chọn | khanhtt | 2026-10-24 |
 | DEC-11 | Bổ sung Phase 1 | Thương hiệu + nhúng/QR · lead · thống kê · CĐT duyệt trước phát hành | User chọn | khanhtt | 2026-10-24 |
 | CR-1 | Review G2 (R-25) | Thêm V5 + trường chính sách dữ liệu của dự án | NFR-04 cần trang chính sách cụ thể | Agent (DEC-16) | 2026-10-24 |
+| CR-2 | Yêu cầu user 2026-10-24 | Thêm M12 Tham quan ảnh thật, V6, A7; sửa FR-08.02, FR-06.01 (item 02) | Mở phân khúc nhà đã xây (không cần dựng 3D) | khanhtt — chờ duyệt | 2026-10-24 |
 | DEC-12…15 | UX | Form lead dạng ngăn kéo · chip tầng trên mobile · thanh liên hệ cố định đáy mobile · phác thảo ASCII | Xem §10.5 | UX (agent), chờ user | 2026-10-24 |
 
 ## Chốt G1
