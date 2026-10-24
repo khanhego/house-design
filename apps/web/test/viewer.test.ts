@@ -16,3 +16,22 @@ describe('thương hiệu', () => {
     expect(inkFor('#F4E04D')).toBe('#1d1a17')
   })
 })
+
+describe('tracker (BR-10)', async () => {
+  const { sessionFor, deviceIdOf } = await import('../src/lib/tracker.ts')
+  const mem = () => {
+    const m = new Map<string, string>()
+    return { get: (k: string) => m.get(k) ?? null, set: (k: string, v: string) => void m.set(k, v) }
+  }
+  it('giữ phiên khi còn tương tác; > 30 phút không tương tác → phiên mới', () => {
+    const s = mem()
+    const a = sessionFor(s, 0)
+    expect(sessionFor(s, 29 * 60_000)).toBe(a)
+    expect(sessionFor(s, 58 * 60_000)).toBe(a)
+    expect(sessionFor(s, 58 * 60_000 + 30 * 60_000 + 1)).not.toBe(a)
+  })
+  it('mã thiết bị ổn định', () => {
+    const s = mem()
+    expect(deviceIdOf(s)).toBe(deviceIdOf(s))
+  })
+})

@@ -1,9 +1,9 @@
-import { StrictMode, useState } from 'react'
+import { StrictMode, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes, useParams } from 'react-router'
 import '../styles/tokens.css'
 import './viewer.css'
-import { useHouse, useProject, hasWebGL2 } from './data.ts'
+import { useHouse, useProject, hasWebGL2, sourceFromUrl } from './data.ts'
 import type { Load } from './data.ts'
 import { ProjectPage } from './ProjectPage.tsx'
 import { HousePage } from './HousePage.tsx'
@@ -11,8 +11,41 @@ import { No3D, Unavailable } from './Fallback.tsx'
 import { useToast } from './Toast.tsx'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { api } from '../lib/api.ts'
-import type { Branding, PublicProjectInfo } from '@hd/core'
+import type { Branding, PublicHousePayload, PublicProjectInfo, PublicProjectPayload } from '@hd/core'
 import { useEffect } from 'react'
+import { createTracker } from '../lib/tracker.ts'
+import type { Tracker } from '../lib/tracker.ts'
+import { LeadDrawer } from './LeadDrawer.tsx'
+import type { LeadContext } from './LeadDrawer.tsx'
+
+const SOURCE = sourceFromUrl()
+const WEBGL = hasWebGL2()
+const DEVICE = !WEBGL ? 'fallback' : matchMedia('(pointer: coarse)').matches ? 'mobile' : 'desktop'
+
+/** Một tracker cho mỗi dự án đang xem (FR-11.01). */
+const useTracker = (projectSlug: string) => {
+  const t = useMemo(() => createTracker({ projectSlug, source: SOURCE, deviceClass: DEVICE }), [projectSlug])
+  useEffect(() => t.start(), [t])
+  return t
+}
+
+/** Form lead dùng chung cho V1, V2, V4. */
+const useLead = (tracker: Tracker, data: PublicProjectPayload | PublicHousePayload | null) => {
+  const [ctx, setCtx] = useState<LeadContext | null>(null)
+  const node = ctx && data && data.antiBot ? (
+    <LeadDrawer
+      project={data.project}
+      branding={data.branding}
+      antiBot={data.antiBot}
+      context={ctx}
+      source={SOURCE}
+      deviceId={tracker.deviceId}
+      onClose={() => setCtx(null)}
+      onSent={() => tracker.track('lead_submit', { houseSlug: ctx.houseSlug })}
+    />
+  ) : null
+  return { open: setCtx, node }
+}
 
 const Status = <T,>({ load, retry, children }: { load: Load<T>; retry: () => void; children: (d: T) => React.ReactNode }) => {
   if (load.state === 'loading') return <div className="v-splash"><div className="spinner" />Đang tải…</div>
@@ -32,7 +65,20 @@ const ProjectRoute = () => {
   const { project = '' } = useParams()
   const [k, setK] = useState(0)
   const load = useProject(project, k)
-  return <Status load={load} retry={() => setK((x) => x + 1)}>{(d) => <ProjectPage data={d} />}</Status>
+  const tracker = useTracker(project)
+  const data = load.state === 'ok' ? load.data : null
+  const lead = useLead(tracker, data)
+  useEffect(() => {
+    if (data) tracker.track('project_open')
+  }, [data, tracker])
+  return (
+    <>
+      <Status load={load} retry={() => setK((x) => x + 1)}>
+        {(d) => <ProjectPage data={d} onLead={() => lead.open({})} onContact={(kind) => tracker.track('contact_click', { targetId: kind })} />}
+      </Status>
+      {lead.node}
+    </>
+  )
 }
 
 const HouseRoute = () => {
@@ -40,18 +86,37 @@ const HouseRoute = () => {
   const [k, setK] = useState(0)
   const load = useHouse(project, house, k)
   const toast = useToast()
-  const [webgl] = useState(hasWebGL2)
+  const tracker = useTracker(project)
+  const data = load.state === 'ok' ? load.data : null
+  const lead = useLead(tracker, data)
+  useEffect(() => {
+    if (!data) return
+    tracker.track('house_open', { houseSlug: house })
+    if (!WEBGL) tracker.track('fallback_shown', { houseSlug: house })
+  }, [data, tracker, house])
+  const ev = (type: Parameters<Tracker['track']>[0]) => (targetId?: string | null) => tracker.track(type, { houseSlug: house, targetId: targetId ?? undefined })
+  const openLead = (c: { floorId?: string; roomId?: string } = {}) => data && lead.open({ houseSlug: house, houseName: data.house.name, ...c })
   return (
     <>
       <Status load={load} retry={() => setK((x) => x + 1)}>
         {(d) =>
-          webgl ? (
-            <HousePage data={d} backTo={`/v/${project}${location.search.includes('src=') ? `?src=${new URLSearchParams(location.search).get('src')}` : ''}`} toast={toast.show} />
+          WEBGL ? (
+            <HousePage
+              data={d}
+              backTo={`/v/${project}${SOURCE !== 'link' ? `?src=${SOURCE}` : ''}`}
+              toast={toast.show}
+              onLead={openLead}
+              events={{
+                floor: ev('floor_select'), room: ev('room_select'), walk: ev('walk_mode'), item: ev('item_open'),
+                plan: () => ev('plan_open')(), pdf: () => ev('pdf_download')(), contact: (kind) => ev('contact_click')(kind),
+              }}
+            />
           ) : (
-            <No3D data={d} onPdf={() => void import('../lib/pdf.ts').then((m) => m.exportPlanPdf(d))} />
+            <No3D data={d} onLead={() => openLead()} onPdf={() => (ev('pdf_download')(), void import('../lib/pdf.ts').then((m) => m.exportPlanPdf(d)))} />
           )
         }
       </Status>
+      {lead.node}
       {toast.node}
     </>
   )

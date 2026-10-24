@@ -28,7 +28,8 @@ export interface ViewerEvents {
 
 interface Props {
   data: PublicHousePayload
-  onLead?: () => void
+  /** mở form lead kèm tầng/phòng đang xem (FR-10.02) */
+  onLead?: (ctx: { floorId?: string; roomId?: string }) => void
   events?: ViewerEvents
   /** dải "BẢN XEM TRƯỚC" (C3/A3) */
   previewBanner?: React.ReactNode
@@ -45,7 +46,7 @@ const WALL_MODES: { id: WallMode; label: string }[] = [
 const readQuery = () => new URLSearchParams(location.search)
 
 /** V2 — xem mẫu nhà (FR-06.*, SRS §10.4). */
-export const HousePage = ({ data, onLead, events = {}, previewBanner, backTo, toast }: Props) => {
+export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner, backTo, toast }: Props) => {
   useBrand(data.branding)
   const doc = data.document
   const floors = useMemo(() => sortedFloors(doc), [doc])
@@ -56,6 +57,7 @@ export const HousePage = ({ data, onLead, events = {}, previewBanner, backTo, to
   const initialFloor = floors.find((f) => f.id === q.get('floor'))?.id ?? (single ? floors[0].id : 'all')
   const [floorId, setFloorId] = useState<string>(initialFloor)
   const [roomId, setRoomId] = useState<string | null>(q.get('room'))
+  const onLead = onLeadCtx ? () => onLeadCtx({ floorId: floorId !== 'all' ? floorId : undefined, roomId: roomId ?? undefined }) : undefined
   const [mode, setMode] = useState<ViewMode>('orbit')
   const [wallMode, setWallMode] = useState<WallMode>('auto')
   const [night, setNight] = useState(false)

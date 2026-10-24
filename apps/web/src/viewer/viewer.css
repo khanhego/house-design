@@ -264,3 +264,27 @@
   .sheet { bottom: 0; }
   .v1 { padding-bottom: 90px; }
 }
+
+/* V3 form lead */
+.lead-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(20, 18, 16, 0.42); display: flex; justify-content: flex-end; }
+.lead { width: min(420px, 100%); height: 100%; background: var(--surface); overflow: auto; padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) 18px; display: grid; align-content: start; gap: 14px; box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18); }
+.lead-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.lead-head h2 { margin: 0; font-size: 18px; text-wrap: balance; }
+.lead-form { display: grid; gap: 12px; }
+.lead-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+.lead-form input:not([type=checkbox]):not([type=radio]), .lead-form textarea { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 15px; background: var(--surface); color: var(--text); }
+.lead-form input[aria-invalid=true] { border-color: #c0392b; }
+.lead-form fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.lead-form legend { font-size: 13px; font-weight: 500; padding: 0; margin-bottom: 6px; }
+.lead-form .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lead-form .chip input { position: absolute; opacity: 0; pointer-events: none; }
+.lead-form .chip.on { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.lead-form .consent { display: flex; gap: 8px; align-items: start; font-weight: 400; }
+.lead-form .consent input { margin-top: 3px; }
+.lead-form .err, .lead-done .err { color: #c0392b; font-style: normal; font-size: 12px; font-weight: 400; }
+.lead-form .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.lead-done { display: grid; gap: 14px; justify-items: start; }
+@media (max-width: 640px) {
+  .lead-scrim { align-items: flex-end; }
+  .lead { height: auto; max-height: 92dvh; border-radius: 18px 18px 0 0; }
+}
