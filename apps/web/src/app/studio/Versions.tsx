@@ -142,7 +142,7 @@ export const VersionsPage = ({ me }: { me: Me }) => {
       />
       {neverSubmitted && <EmptyState>Chưa gửi duyệt lần nào.</EmptyState>}
       <div className="ver-list">
-        {[...items].reverse().map((v) => (
+        {items.map((v) => (
           <section key={v.id} className="card ver">
             <header className="ver-head">
               <strong>Phiên bản {v.number}</strong>

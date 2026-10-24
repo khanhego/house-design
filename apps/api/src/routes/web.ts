@@ -43,9 +43,10 @@ export const registerWeb = async (app: FastifyInstance, ctx: Ctx) => {
     root: dist,
     index: false,
     wildcard: true,
+    // @fastify/static 10 truyền FastifyReply (không phải http.ServerResponse)
     setHeaders: (res, path) => {
-      const r = res as unknown as { setHeader(k: string, v: string): void }
-      if (path.includes('/assets/')) r.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      const r = res as unknown as FastifyReply
+      if (path.includes('/assets/')) r.header('Cache-Control', 'public, max-age=31536000, immutable')
     },
   })
 

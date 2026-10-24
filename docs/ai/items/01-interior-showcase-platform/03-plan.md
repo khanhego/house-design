@@ -61,7 +61,7 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T-28 | Tracker sự kiện | fe | FR-11.01 | 02b F5 | T-26, T-9 | 0,5 | ✅ |
 | T-29 | C4 lead + C5 thống kê + A6 | fe | FR-10.05, 11.02–03 | 02b F16 | T-25, T-26, T-14 | 1 | ✅ |
 | **Lát 5 — Hoàn thiện** |||||||
-| T-30 | E2E Playwright (E2E-01, E2E-02 qua server thật + CSP) + cập nhật profile/system-map | fe+be | AC-* | 02b F17, 02a B13 | tất cả | 0,75 | ⬜ |
+| T-30 | E2E Playwright (E2E-01, E2E-02 qua server thật + CSP) + cập nhật profile/system-map | fe+be | AC-* | 02b F17, 02a B13 | tất cả | 0,75 | ✅ |
 
 > Mỗi task Done khi: build + typecheck + test của component đều xanh; có test cho hành vi mới; chạy thử được (bằng chứng ghi ở CP8).
 
