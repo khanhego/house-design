@@ -106,6 +106,12 @@ Câu lệnh mẫu user gửi yêu cầu trang "như một bộ phim kiến trúc
 
 **Dữ liệu thử ảnh thật:** `data/data-test-tour-that/` gồm 13 ảnh Stahl House (Los Angeles) của Amelia Pergl, Wikimedia Commons, giấy phép CC BY 2.0. Ghi công trong `CREDITS.txt` và trong mô tả mẫu nhà thử. Chỉ dùng thử nội bộ (DEC-T9).
 
+## 6c. CR-4 — Từ trong ra ngoài, ảnh nối nhau (2026-10-25)
+
+- **Kịch bản đi từ trong ra ngoài** qua từng phòng: Bên trong → Sân vườn & hồ bơi → Ngoài nhà (quay lại nhìn toàn cảnh, cảnh kết là toàn cảnh đẹp nhất). Thứ tự chương nằm ở `TOUR_CHAPTERS` (`packages/core/src/schema.ts`); cảnh đầu mặc định Bên trong (`sceneChapters`). Kịch bản chụp trong `apps/web/src/tour/guide.ts` hướng dẫn đúng tuyến này.
+- **Không tràn viền:** trước đây ảnh luôn phủ kín khung rồi còn phóng tới 2,3 lần khi chuyển cảnh, nên mất nhiều phần ảnh. Giờ chỉ phủ kín khi phải cắt ≤ 12% ảnh; còn lại hiện đủ ảnh trên nền mờ. Phóng tối đa 1,12 (`frame.ts` · `fitOf`, `walk`).
+- **Ảnh nối nhau:** chuyển cảnh "bước" về điểm đi tiếp đã chấm trên ảnh trước, ảnh sau hiện ra từ đúng hướng đó, nhoè rồi rõ dần. Người xem thấy trước chỗ sẽ đi tới nhờ dấu chấm sáng + tên cảnh sau. Bấm dấu đó là đi. Vì vậy **chấm điểm đi tiếp đúng chỗ ảnh sau đứng chụp** quyết định cảm giác liền mạch; ảnh chụp không theo quy tắc nối cảnh (§11) thì hiệu ứng không bù được.
+
 ## 7. Giới hạn hiện tại
 - Chưa tự gọi AI tạo clip (Phase 2, FR-12.14). Hiện đội dựng tạo clip ngoài hệ thống rồi tải lên.
 - Chưa có tour rẽ nhánh (một tuyến thẳng).

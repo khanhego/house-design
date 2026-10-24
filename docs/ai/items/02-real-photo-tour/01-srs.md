@@ -237,7 +237,7 @@ Trạng thái: đang tải (ảnh mờ + vòng tải) · ảnh kế chưa tải 
 |---|---|---|
 | BR-T6 | Giá hiển thị làm tròn kiểu Việt: ≥ 1 tỷ → "12,5 tỷ ₫"; < 1 tỷ → "850 triệu ₫" | 12 500 000 000 → "12,5 tỷ ₫" |
 | BR-T7 | Giá thay đổi = thay đổi nội dung → phải duyệt lại (đi theo phiên bản như mô tả) | Sửa giá sau khi phát hành → tạo phiên bản mới |
-| BR-T8 | Chương phải theo thứ tự Ngoài nhà → Bên trong → Sân vườn & hồ bơi khi xem; cảnh không gán chương thuộc chương của cảnh trước (cảnh 1 mặc định Ngoài nhà) | |
+| BR-T8 | ~~Ngoài nhà → Bên trong → Sân vườn & hồ bơi~~ → **(CR-4)** Kịch bản đi từ trong ra ngoài: Bên trong → Sân vườn & hồ bơi → Ngoài nhà (nhìn lại toàn cảnh). Cảnh không gán chương thuộc chương của cảnh trước; cảnh 1 mặc định Bên trong | CR-4 |
 
 **Ngoài phạm vi CR-3:** nhạc nền (để sau), tự tạo clip bằng AI (FR-12.14, Phase 2). Phần sau của câu lệnh mẫu chưa nhận được — đối chiếu bổ sung khi có.
 
@@ -248,6 +248,23 @@ Trạng thái: đang tải (ảnh mờ + vòng tải) · ảnh kế chưa tải 
 | AC-T9 | Tour 3 chương: hiện đúng 3 màn tiêu đề chương theo thứ tự; cảnh cuối hiện màn lộ với tên + thông số + nút liên hệ | Tour mẫu ảnh thật |
 | AC-T10 | Giá 12,5 tỷ hiện "12,5 tỷ ₫"; để trống hiện "Giá: liên hệ"; sửa giá sau phát hành không đổi trang công khai cho tới khi phát hành bản mới | Thử |
 | AC-T11 | Ảnh dọc hiện đủ (không mất đầu/chân) trên nền mờ | Ảnh dọc mẫu |
+
+## 12c. CR-4 — Đi từ trong ra ngoài, ảnh không tràn viền, cảnh nối nhau (user phản hồi 2026-10-25)
+
+Phản hồi: (1) "Kịch bản là thiết kế 1 ngôi nhà từ trong ra ngoài đi qua các phòng"; (2) "ảnh vẫn đang bị tràn viền quá nhiều, các ảnh không có sự kết nối".
+
+| ID | Yêu cầu | Ưu tiên | Nguồn |
+|---|---|:-:|---|
+| FR-12.23 | Kịch bản chụp, gợi ý chương và thứ tự chương đi từ trong ra ngoài qua từng phòng (BR-T8 mới) | M | CR-4 (1) |
+| FR-12.24 | Ảnh luôn hiện gần đủ khung hình: phủ kín chỉ khi phải cắt ≤ 12% ảnh, ngược lại hiện đủ ảnh trên nền mờ của chính nó; mọi hiệu ứng phóng ≤ 1,12 lần | M | CR-4 (2) |
+| FR-12.25 | Chuyển cảnh "bước tới": máy ảnh tiến về điểm đi tiếp của cảnh trước, cảnh sau hiện ra từ đúng hướng đó (nhoè → rõ); lùi lại là chuyển động ngược. Dùng chung cho Phim và Từng cảnh | M | CR-4 (2) |
+| FR-12.26 | Trên ảnh hiện dấu "đi tiếp" (chấm sáng + tên cảnh sau) ở điểm đi tiếp; bấm để sang cảnh sau | M | CR-4 (2) |
+
+| AC | Tiêu chí | Cách kiểm |
+|---|---|---|
+| AC-T12 | Ảnh ngang 3:2 trên màn 16:9 hiện đủ, không mất phần trên/dưới; trong lúc chuyển cảnh không phần nào bị phóng quá 1,12 | Ảnh chụp màn ở giữa chuyển cảnh |
+| AC-T13 | Cảnh có điểm đi tiếp hiện chấm + tên cảnh sau; bấm chấm sang đúng cảnh sau | E2E / tay |
+| AC-T14 | Tour mẫu đi Bên trong → Sân vườn & hồ bơi → Ngoài nhà, thanh chương đúng thứ tự | Tay |
 
 ## 13. Nghiệm thu
 

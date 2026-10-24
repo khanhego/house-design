@@ -161,7 +161,8 @@ export const ViewpointSchema = z.object({
 /* Tham quan ảnh thật (item 02, FR-12.*) */
 export const MAX_TOUR_SCENES = 60
 /** Chương của hành trình (CR-3, FR-12.17) — thứ tự cố định */
-export const TOUR_CHAPTERS = ['exterior', 'interior', 'outdoor'] as const
+// kịch bản đi từ trong ra ngoài (CR-4): bên trong → sân vườn & hồ bơi → ngoài nhà nhìn lại toàn cảnh
+export const TOUR_CHAPTERS = ['interior', 'outdoor', 'exterior'] as const
 export type TourChapter = (typeof TOUR_CHAPTERS)[number]
 export const TOUR_CHAPTER_LABEL: Record<TourChapter, string> = { exterior: 'Ngoài nhà', interior: 'Bên trong', outdoor: 'Sân vườn & hồ bơi' }
 const unit = z.number().finite().min(0).max(1)

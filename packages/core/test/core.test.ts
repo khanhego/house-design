@@ -259,9 +259,11 @@ describe('CR-3 — giá, chương', () => {
     expect(formatPriceVnd(null)).toBeNull()
   })
   it('chương theo cảnh trước, cảnh 1 mặc định Ngoài nhà (BR-T8); gợi ý từ tên', () => {
-    expect(sceneChapters([{}, { chapter: 'interior' }, {}, { chapter: 'outdoor' }, {}])).toEqual(['exterior', 'interior', 'interior', 'outdoor', 'outdoor'])
+    expect(sceneChapters([{}, { chapter: 'interior' }, {}, { chapter: 'outdoor' }, {}])).toEqual(['interior', 'interior', 'interior', 'outdoor', 'outdoor'])
     expect(guessChapter('Hồ bơi lúc chạng vạng')).toBe('outdoor')
     expect(guessChapter('Mặt tiền')).toBe('exterior')
+    expect(guessChapter('Nhìn lại ngôi nhà qua hồ')).toBe('exterior')
+    expect(guessChapter('Sảnh lối vào')).toBe('interior')
     expect(guessChapter('Phòng khách')).toBe('interior')
     expect(guessChapter('Cảnh 7')).toBeUndefined()
   })

@@ -187,7 +187,7 @@ export const formatPriceVnd = (v: number | null | undefined): string | null => {
 
 /** Chương của từng cảnh theo BR-T8: cảnh chưa gán lấy chương của cảnh trước, cảnh 1 mặc định "Ngoài nhà". */
 export const sceneChapters = (scenes: { chapter?: TourChapter }[]): TourChapter[] => {
-  let cur: TourChapter = 'exterior'
+  let cur: TourChapter = 'interior'
   return scenes.map((s) => (cur = s.chapter ?? cur))
 }
 
@@ -195,8 +195,8 @@ export const sceneChapters = (scenes: { chapter?: TourChapter }[]): TourChapter[
 export const guessChapter = (title: string): TourChapter | undefined => {
   const t = title.normalize('NFC').toLowerCase()
   if (/hồ bơi|bể bơi|sân vườn|sân sau|vườn|sân thượng|ban công|hiên sau|pool|garden|terrace|backyard/.test(t)) return 'outdoor'
-  if (/mặt tiền|cổng|sân trước|lối vào|ngoài nhà|facade|exterior|entrance/.test(t)) return 'exterior'
-  if (/phòng|bếp|sảnh|wc|cầu thang|hành lang|lô gia|kitchen|living|bedroom|bath|room/.test(t)) return 'interior'
+  if (/mặt tiền|cổng|sân trước|ngoài nhà|nhìn lại|toàn cảnh|facade|exterior/.test(t)) return 'exterior'
+  if (/phòng|bếp|sảnh|lối vào|wc|cầu thang|hành lang|lô gia|kitchen|living|bedroom|bath|room|entrance/.test(t)) return 'interior'
   return undefined
 }
 

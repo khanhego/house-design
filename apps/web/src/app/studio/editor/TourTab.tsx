@@ -261,7 +261,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
               <h3>Cảnh {selIdx + 1}</h3>
               <label className="ins-field"><span>Chương</span>
                 <select disabled={locked} value={sel.chapter ?? ''} onChange={(e) => setScene(sel.id, (s) => (e.target.value ? (s.chapter = e.target.value as TourScene['chapter']) : delete s.chapter), 'ch')}>
-                  <option value="">Theo cảnh trước ({TOUR_CHAPTER_LABEL[chapters[selIdx] ?? 'exterior']})</option>
+                  <option value="">Theo cảnh trước ({TOUR_CHAPTER_LABEL[chapters[selIdx] ?? 'interior']})</option>
                   {TOUR_CHAPTERS.map((c) => <option key={c} value={c}>{TOUR_CHAPTER_LABEL[c]}</option>)}
                 </select>
               </label>

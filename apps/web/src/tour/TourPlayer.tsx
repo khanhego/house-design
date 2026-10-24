@@ -1,6 +1,6 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import './tour.css'
-import { bringFront, originFor, setFrame } from './frame.ts'
+import { bringFront, pointPx, rest, setFrame, walk } from './frame.ts'
 
 /* Trình xem tour ảnh thật (item 02, V6 · FR-12.05–12.09). Thuần DOM/CSS — không cần WebGL. */
 
@@ -39,7 +39,6 @@ interface Props {
 }
 
 const DUR = 1100
-const EASE = 'cubic-bezier(.45,0,.2,1)'
 
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
 const bigScreen = () => typeof window !== 'undefined' && window.innerWidth * (window.devicePixelRatio || 1) > 1600
@@ -90,12 +89,43 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
   const onIndexRef = useRef(onIndex)
   onIndexRef.current = onIndex
   const skipClip = useRef<(() => void) | null>(null)
+  // dấu "đi tiếp" trên ảnh (CR-4): tính lại khi đổi cảnh, khi ảnh giải mã xong và khi khung đổi cỡ
+  const [mark, setMark] = useState<[number, number] | null>(null)
+  const [frameTick, setFrameTick] = useState(0)
+  const bump = () => setFrameTick((x) => x + 1)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(bump)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  useLayoutEffect(() => {
+    const s = scenes[cur]
+    const layer = layers[front.current].current
+    if (!s?.next || cur >= scenes.length - 1 || !layer || !box.current) return setMark(null)
+    setMark(pointPx(layer, box.current.getBoundingClientRect(), s.next))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, frameTick, scenes])
+
+  /** Chạy chuyển cảnh theo khung hình; tự dừng khi trình xem đã gỡ. */
+  const run = (step: (t: number) => void, dur: number, done: () => void) => {
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      if (!alive.current) return
+      const t = Math.min(1, (now - t0) / dur)
+      step(t)
+      if (t < 1) requestAnimationFrame(tick)
+      else done()
+    }
+    requestAnimationFrame(tick)
+  }
 
   // ảnh đầu
   useEffect(() => {
     const s = scenes[cur]
     const a = layers[front.current].current
-    if (s && a) void setFrame(a, srcOf(s)).then(() => bringFront(a, null))
+    if (s && a) void setFrame(a, srcOf(s)).then(() => (bringFront(a, null), alive.current && bump()))
     onIndexRef.current?.(cur)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -145,13 +175,14 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       const swap = () => {
         A.getAnimations().forEach((x) => x.cancel())
         B.getAnimations().forEach((x) => x.cancel())
-        A.style.opacity = '0'
+        rest(A, 0)
+        rest(B, 1)
         A.style.zIndex = '1'
-        B.style.opacity = '1'
         B.style.zIndex = '2'
         front.current = 1 - front.current
         bringFront(B, A)
         finish(target)
+        bump()
       }
 
       // clip chuyển cảnh (FR-12.06): chỉ khi đi tới
@@ -200,19 +231,9 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
         B.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reducedMotion() ? 300 : 380, easing: 'ease', fill: 'forwards' }).onfinish = swap
         return
       }
-      if (forward) {
-        // "bước tới": ảnh hiện tại phóng vào điểm đi tiếp, ảnh sau thu từ gần về
-        A.style.transformOrigin = originFor(A, rect, sFrom.next)
-        A.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 1, offset: 0.45 }, { transform: 'scale(2.3)', opacity: 0 }], { duration: DUR, easing: EASE, fill: 'forwards' })
-        B.style.transformOrigin = '50% 50%'
-        B.animate([{ transform: 'scale(1.35)', opacity: 0 }, { transform: 'scale(1.22)', opacity: 0, offset: 0.35 }, { transform: 'scale(1)', opacity: 1 }], { duration: DUR, easing: EASE, fill: 'forwards' }).onfinish = swap
-      } else {
-        // "lùi lại": ảnh hiện tại thu nhỏ mờ đi, ảnh trước lùi ra từ điểm đi tiếp của nó
-        A.style.transformOrigin = '50% 50%'
-        A.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.82)', opacity: 0 }], { duration: DUR * 0.9, easing: EASE, fill: 'forwards' })
-        B.style.transformOrigin = originFor(B, rect, sTo.next)
-        B.animate([{ transform: 'scale(2.3)', opacity: 0 }, { transform: 'scale(1.6)', opacity: 1, offset: 0.55 }, { transform: 'scale(1)', opacity: 1 }], { duration: DUR, easing: EASE, fill: 'forwards' }).onfinish = swap
-      }
+      // "bước tới" về điểm đi tiếp; "lùi lại" là cùng chuyển động đó chạy ngược (CR-4)
+      if (forward) run((t) => walk(A, B, rect, sFrom.next, t), DUR, swap)
+      else run((t) => walk(B, A, rect, sTo.next, 1 - t), DUR * 0.9, swap)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [scenes, finish],
@@ -294,6 +315,13 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       ))}
       <video ref={video} className="tour-video" muted playsInline preload="auto" style={{ display: showVideo ? 'block' : 'none' }} />
       {showVideo && <button className="tour-skip" onClick={() => skipClip.current?.()}>Bỏ qua clip ›</button>}
+
+      {mark && !busy && !ended && (
+        <button className="tour-mark" style={{ left: mark[0], top: mark[1] }} onClick={user(next)} aria-label={`Đi tới: ${scenes[cur + 1]?.title}`}>
+          <i />
+          <span>{scenes[cur + 1]?.title || 'Đi tiếp'}</span>
+        </button>
+      )}
 
       {waiting && <div className="tour-wait" aria-live="polite"><span className="tour-spin" />Đang tải ảnh…</div>}
 

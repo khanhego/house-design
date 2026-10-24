@@ -30,6 +30,7 @@
 | 9 | Commit cục bộ | ✅ | 2026-10-24 | chưa push |
 | 10 | Review code (subagent) | ✅ G3 (agent, DEC-T7) | 2026-10-25 | Đạt có ĐK: 0 blocker, 2 major (R-T-01 clip làm kẹt trình xem, R-T-02 GPS trong MP4), 9 minor, 5 nit → đã sửa hết; core 29 · api 85 · web 16 |
 | 12 | CR-3 implement (Phim, chương, màn lộ, điện ảnh, giá) | ✅ | 2026-10-25 | migration 003; core 31 · api 85 · web 17 · e2e 3; demo ảnh thật |
+| 13 | CR-4 (trong → ngoài, không tràn viền, chuyển cảnh nối hướng, dấu đi tiếp) | ✅ | 2026-10-25 | core 31 · api 85 · web 17 · e2e 3 |
 | 11 | Chạy test `04a` | ⬜ | | |
 
 ## NOW
@@ -47,5 +48,6 @@
 | DEC-T6 | Mẫu nhà chỉ có tour | Tầng rỗng không tính 3D và bị bỏ qua khi kiểm; không cảnh báo điểm nhìn mặc định; ảnh đại diện có thể là ảnh cảnh tour | FR-12.10 | Agent | 2026-10-24 |
 | DEC-T7 | G3 | Sửa toàn bộ 16 phát hiện; clip MP4 làm sạch bằng JS thuần (không phụ thuộc ffmpeg trên server) — đã kiểm với MP4 có GPS do ffmpeg tạo: hết toạ độ, vẫn giải mã đủ khung | Server production có thể không có ffmpeg | Agent | 2026-10-25 |
 | DEC-T8 | CR-3 | User chọn làm cả 4 ý (Phim cuộn, chương + màn lộ, chất điện ảnh, thông số + giá); giá đi theo bản duyệt | Câu lệnh mẫu user gửi | khanhtt | 2026-10-25 |
+| DEC-T10 | CR-4 | Thứ tự chương đổi thành Bên trong → Sân vườn & hồ bơi → Ngoài nhà (BR-T8). Ngưỡng phủ kín: cắt ≤ 12%; phóng tối đa 1,12. Chuyển cảnh dùng một hàm `walk` chung cho cả hai chế độ thay cho phóng 2,3 lần + mờ chồng. Ảnh demo đổi tên/thứ tự theo kịch bản mới | Phản hồi user: tràn viền, ảnh không nối, kịch bản từ trong ra ngoài | Agent | 2026-10-25 |
 | DEC-T9 | Ảnh demo thật | Bộ ảnh Stahl House (Los Angeles) của Amelia Pergl, Wikimedia Commons, giấy phép CC BY 2.0 — chỉ dùng làm dữ liệu thử local, ghi công tác giả trong mô tả tour và tệp `CREDITS.txt`; không phải dữ liệu khách hàng | User yêu cầu ảnh thật; không dùng ảnh tin đăng có bản quyền | Agent | 2026-10-25 |
 | DEC-T3 | Một tuyến thẳng | P1 không làm nhánh rẽ (FR-12.15 = W) | Kịch bản chụp đơn giản cho người dùng | Agent | 2026-10-24 |

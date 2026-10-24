@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { sceneChapters, TOUR_CHAPTER_LABEL } from '@hd/core'
 import type { HouseMeta, TourChapter } from '@hd/core'
-import { originFor, setFrame } from './frame.ts'
+import { pointPx, rest, setFrame, walk } from './frame.ts'
 import { TourFacts } from './TourFacts.tsx'
 import type { PlayerScene } from './TourPlayer.tsx'
 import './tour.css'
@@ -48,6 +48,7 @@ export const TourFilm = ({ scenes, house, location, floors, onIndex, onLead, onS
   const sceneCard = useRef<HTMLDivElement>(null)
   const reveal = useRef<HTMLDivElement>(null)
   const hint = useRef<HTMLDivElement>(null)
+  const mark = useRef<HTMLButtonElement>(null)
   const [H, setH] = useState(800)
   const [idx, setIdx] = useState(0)
   const idxRef = useRef(-1)
@@ -105,20 +106,33 @@ export const TourFilm = ({ scenes, house, location, floors, onIndex, onLead, onS
     if (!cur || !nxt) return
     const box = cur.getBoundingClientRect()
     const scene = scenes[i]
-    // ảnh hiện tại: trôi nhẹ khi dừng, rồi "bước" vào điểm đi tiếp; màn lộ: lùi chậm ra toàn cảnh
-    const drift = cur.querySelector<HTMLElement>('.tour-drift')!
-    drift.style.transform = `scale(${1 + 0.05 * clamp(k / DWELL)})`
-    cur.style.transformOrigin = originFor(cur, box, scene.next)
-    cur.style.transform = i === n - 1 ? `scale(${1.14 - 0.14 * r})` : `scale(${1 + 1.3 * t})`
-    cur.style.opacity = String(1 - smooth(0.45, 1, t))
-    cur.style.zIndex = '2'
-    if (i < n - 1) {
-      nxt.style.transformOrigin = '50% 50%'
-      nxt.style.transform = `scale(${1.35 - 0.35 * t})`
-      nxt.style.opacity = String(smooth(0.3, 1, t))
-      nxt.style.zIndex = t > 0.5 ? '3' : '1'
-      nxt.querySelector<HTMLElement>('.tour-drift')!.style.transform = 'scale(1)'
-    } else nxt.style.opacity = '0'
+    // đứng yên: trôi rất nhẹ; chuyển cảnh: "bước tới" điểm đi tiếp (frame.walk); màn lộ: lùi chậm ra toàn cảnh
+    cur.querySelector<HTMLElement>('.tour-drift')!.style.transform = `scale(${1 + 0.03 * clamp(k / DWELL)})`
+    nxt.querySelector<HTMLElement>('.tour-drift')!.style.transform = 'scale(1)'
+    if (i < n - 1) walk(cur, nxt, box, scene.next, t)
+    else {
+      rest(cur, 1)
+      cur.style.transformOrigin = '50% 50%'
+      cur.style.transform = `scale(${1.06 - 0.06 * r})`
+      cur.style.zIndex = '2'
+      rest(nxt, 0)
+    }
+
+    // dấu "đi tiếp": hiện trong lúc dừng ở cảnh, sau tiêu đề chương; chỉ chỗ sẽ bước tới (CR-4)
+    const first = i === 0 || chapters[i] !== chapters[i - 1]
+    const m = mark.current
+    if (m) {
+      const on = i < n - 1 && !!scene.next
+      const from = i === 0 ? 0.34 : first ? 0.24 : 0.1
+      const op = on ? smooth(from, from + 0.08, k) * (1 - smooth(DWELL + 0.06, DWELL + 0.16, k)) : 0
+      if (on) {
+        const [px, py] = pointPx(cur, box, scene.next)
+        m.style.left = `${px}px`
+        m.style.top = `${py}px`
+      }
+      m.style.opacity = String(op)
+      m.style.pointerEvents = op > 0.5 ? 'auto' : 'none'
+    }
 
     // clip chuyển cảnh: tua theo cuộn
     const v = video.current
@@ -134,7 +148,6 @@ export const TourFilm = ({ scenes, house, location, floors, onIndex, onLead, onS
     }
 
     // chữ: mở đầu → tiêu đề chương → thẻ cảnh → màn lộ
-    const first = i === 0 || chapters[i] !== chapters[i - 1]
     if (hero.current) hero.current.style.opacity = String(1 - smooth(0.02, 0.22, s))
     if (hint.current) hint.current.style.opacity = String(1 - smooth(0, 0.05, s))
     if (chapterCard.current) {
@@ -208,6 +221,10 @@ export const TourFilm = ({ scenes, house, location, floors, onIndex, onLead, onS
             <h1>{house.name}</h1>
             <TourFacts house={house} floors={floors} compact />
           </div>
+          <button ref={mark} className="tour-mark film-mark" style={{ opacity: 0 }} onClick={() => go(idx + 1)} aria-label={`Đi tới: ${scenes[idx + 1]?.title ?? ''}`}>
+            <i />
+            <span>{scenes[idx + 1]?.title || 'Đi tiếp'}</span>
+          </button>
           <div ref={hint} className="film-hint">Cuộn để bắt đầu hành trình<span>↓</span></div>
 
           <div ref={chapterCard} className="film-chapter" aria-hidden="true">

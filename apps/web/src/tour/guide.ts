@@ -34,7 +34,7 @@ export const GUIDE: GuideSection[] = [
     ordered: true,
     items: [
       'Cầm máy ở tầm mắt, khoảng 1,5 m. Giữ máy thẳng đứng: đường dọc của tường phải thẳng; không ngửa, không cúi.',
-      'Mỗi ảnh nhìn theo hướng sẽ đi tiếp, như đang bước vào nhà.',
+      'Mỗi ảnh nhìn theo hướng sẽ đi tiếp, như đang đi lần lượt qua các phòng rồi bước ra ngoài.',
       'Quy tắc nối cảnh: chỗ đứng chụp ảnh sau phải NHÌN THẤY ĐƯỢC trong ảnh trước, cách 2–4 m. Không quay quá 90° giữa hai ảnh liền nhau; muốn đổi hướng mạnh thì chụp thêm một ảnh trung gian.',
       'Qua cửa: chụp 1 ảnh đứng trước cửa nhìn vào, rồi 1 ảnh đứng trong phòng cách cửa khoảng 1 m nhìn vào giữa phòng.',
       'Cầu thang: 1 ảnh chân thang nhìn lên, 1 ảnh giữa thang, 1 ảnh đầu thang nhìn ra sảnh tầng.',
@@ -43,9 +43,10 @@ export const GUIDE: GuideSection[] = [
   {
     title: 'Tuyến đi gợi ý',
     items: [
-      'Mặt tiền (đứng bên kia đường) → cổng / sân → cửa chính → sảnh → phòng khách → bếp, ăn → WC tầng 1 → cầu thang.',
-      'Sảnh tầng 2 → mỗi phòng ngủ 2 ảnh (từ cửa, và từ góc đối diện nhìn ra cửa sổ) → WC → … → sân thượng / ban công.',
-      'Cảnh kết: nhìn ra view đẹp nhất của căn nhà.',
+      'Đi từ TRONG ra NGOÀI, qua lần lượt từng phòng. Chương 1 · Bên trong: sảnh (đứng sau cửa chính nhìn vào) → phòng khách → bếp, ăn → WC tầng 1 → cầu thang → sảnh tầng 2 → mỗi phòng ngủ 2 ảnh (từ cửa, và từ góc đối diện nhìn ra cửa sổ) → WC.',
+      'Chương 2 · Sân vườn & hồ bơi: ảnh đứng trong nhìn ra cửa dẫn ra sân → bước ra hiên / ban công / sân vườn / hồ bơi.',
+      'Chương 3 · Ngoài nhà: quay lại nhìn ngôi nhà từ sân → mặt tiền (đứng bên kia đường) → cảnh kết là toàn cảnh đẹp nhất của căn nhà (nên chụp lúc chạng vạng khi đã bật đèn).',
+      'Mỗi ảnh nhớ chấm "điểm đi tiếp" vào đúng chỗ ảnh sau đứng chụp (cửa, lối đi): người xem thấy chấm này và chuyển cảnh sẽ "bước" về hướng đó.',
     ],
   },
   {
@@ -55,7 +56,7 @@ export const GUIDE: GuideSection[] = [
   {
     title: 'Đặt tên tệp',
     items: [
-      'Số đầu là thứ tự đi, phần sau là tên cảnh: 01-mat-tien.jpg, 02-cong.jpg, 03-cua-chinh.jpg, 04-phong-khach.jpg…',
+      'Số đầu là thứ tự đi, phần sau là tên cảnh: 01-sanh.jpg, 02-phong-khach.jpg, 03-bep.jpg, … 18-ho-boi.jpg, 19-mat-tien.jpg…',
       'Hệ thống tự xếp theo số và tự lấy tên cảnh (có dấu) từ tên tệp. Không đặt tên được thì hệ thống xếp theo giờ chụp.',
     ],
   },
