@@ -36,7 +36,8 @@
 | 5 | Review bộ spec (subagent) | ✅ G2 | 2026-10-24 | V1 Fail (4 blocker/15 major) → v0.2 → V2 Pass có ĐK → sửa N-01…08 |
 | 6 | Plan `03` | ✅ Plan | 2026-10-24 | DEC-35 |
 | 7 | Test cases `04` | ✅ CP7 | 2026-10-24 | 82 TC, 48 P1 |
-| 8 | Implement (theo `03`) | ▶ đang làm | 2026-10-24 | nhánh `feat/01-interior-showcase-platform` |
+| 8 | Implement (theo `03`) | ▶ đang làm | 2026-10-24 | nhánh `feat/01-interior-showcase-platform`; lát 1 ✅ (T-1…T-10) |
+| 8c | Tài liệu nghiệp vụ lát 1 | ✅ CP8c | 2026-10-24 | `docs/nghiep-vu/01-interior-showcase-platform/lat-01-xem-nha-3d.md` |
 
 ## NOW
 | Owner tiếp | Việc tiếp | Skill |
@@ -65,6 +66,7 @@
 | DEC-34 | G2 | Agent duyệt sau 2 vòng review; ĐK spike GLB trước F12/F13 | DEC-16 | Agent | 2026-10-24 |
 | CR-1 | SRS v0.3 | Thêm màn V5 chính sách dữ liệu | R-25 | Agent | 2026-10-24 |
 | DEC-35 | Plan | Agent duyệt Plan (5 lát, đường găng §3) | DEC-16 | Agent | 2026-10-24 |
+| DEC-36 | Chạy TS | Node 25 type stripping, import `.ts`, không build API | Ít công cụ; TS7 hỗ trợ | Agent | 2026-10-24 |
 | DEC-2 | Quy trình chuẩn không có bước market research | Thêm `00a-requirement-analysis.md`, `00b-market-research.md` trong thư mục item, làm input cho SRS | User yêu cầu thứ tự: phân tích → research → SRS | khanhtt | 2026-10-24 |
 
 ## Lịch sử
@@ -82,3 +84,5 @@
 | 2026-10-24 | Tech lead (subagent) | Review spec vòng 1 Fail, vòng 2 Pass có điều kiện |
 | 2026-10-24 | Architect/BE/FE | Spec v0.2 + sửa N-01…N-08; G2 ✅ |
 | 2026-10-24 | PM/QA | `03-plan.md` (Plan ✅), `04-test-cases.md` (CP7) |
+| 2026-10-24 | Dev | Lát 1 xong (T-1…T-10): core, API khung, công khai, seed, viewer 3D, mặt bằng, PDF; 4 commit cục bộ |
+| 2026-10-24 | Dev | Tài liệu nghiệp vụ lát 1 |

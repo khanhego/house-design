@@ -28,16 +28,16 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T | Tên | Comp | Phủ | Nguồn | Phụ thuộc | Ước lượng | Trạng thái |
 |---|---|:---:|---|---|---|---|:---:|
 | **Lát 1 — Xem 3D đa loại nhà + mặt bằng** |||||||
-| T-1 | Monorepo + `core` schema/geometry/rules + test | be | 02 §5, BR-04/05/07/09 | 02a B1 | — | 1 | ⬜ |
-| T-2 | `core.planSvg` + dimensions + escape + test | be | FR-07.01–02 | 02a B2 | T-1 | 1 | ⬜ |
-| T-3 | API khung: server, config, db + migration + trigger, errors, storage, healthz, phục vụ web + CSP + dev proxy | be | NFR-05/06 | 02a B3 | T-1 | 1 | ⬜ |
-| T-4 | Chuyển prototype vào `apps/web`; Vite multi-page; `lib/api.ts`; i18n; theme | fe | — | 02b F1 | T-1 | 0,5 | ⬜ |
-| T-5 | Repo + service projects/houses/versions/library/files (chưa route quản trị) + snapshot.build + publish service + fileAccess | be | FR-01.03, 08.06, BR-01/02 | 02a B5, B7, B8 (phần service) | T-3 | 1,5 | ⬜ |
-| T-6 | Public API + `/files` + availability + OG + form token | be | API-60, 61, BR-08 | 02a B9 | T-5 | 0,5 | ⬜ |
-| T-7 | Seed 4 mẫu nhà AC-01 (căn hộ 2PN, nhà phố 4 tầng có lửng + sân thượng, biệt thự 3 tầng + sân vườn + hồ bơi, nhà cấp 4) — phát hành sẵn | be | AC-01 | 02a B12 | T-5 | 0,5 | ⬜ |
-| T-8 | Cảnh 3D đa tầng từ `HouseDocument` | fe | FR-04.04, 06.02–06.07 | 02b F2 | T-2, T-6 | 2 | ⬜ |
-| T-9 | V1 + V2 shell + V4 (panels, chế độ, mobile, chia sẻ, deep link, miễn trừ, branding) | fe | FR-06.*, 09.01 | 02b F3 | T-8 | 1,5 | ⬜ |
-| T-10 | Tab Mặt bằng + PDF (font VN, dự phòng in-app) | fe | FR-07.01–04 | 02b F4 | T-9 | 1 | ⬜ |
+| T-1 | Monorepo + `core` schema/geometry/rules + test | be | 02 §5, BR-04/05/07/09 | 02a B1 | — | 1 | ✅ |
+| T-2 | `core.planSvg` + dimensions + escape + test | be | FR-07.01–02 | 02a B2 | T-1 | 1 | ✅ |
+| T-3 | API khung: server, config, db + migration + trigger, errors, storage, healthz, phục vụ web + CSP + dev proxy | be | NFR-05/06 | 02a B3 | T-1 | 1 | ✅ |
+| T-4 | Chuyển prototype vào `apps/web`; Vite multi-page; `lib/api.ts`; i18n; theme | fe | — | 02b F1 | T-1 | 0,5 | ✅ |
+| T-5 | Repo + service projects/houses/versions/library/files (chưa route quản trị) + snapshot.build + publish service + fileAccess | be | FR-01.03, 08.06, BR-01/02 | 02a B5, B7, B8 (phần service) | T-3 | 1,5 | ✅ |
+| T-6 | Public API + `/files` + availability + OG + form token | be | API-60, 61, BR-08 | 02a B9 | T-5 | 0,5 | ✅ |
+| T-7 | Seed 4 mẫu nhà AC-01 (căn hộ 2PN, nhà phố 4 tầng có lửng + sân thượng, biệt thự 3 tầng + sân vườn + hồ bơi, nhà cấp 4) — phát hành sẵn | be | AC-01 | 02a B12 | T-5 | 0,5 | ✅ |
+| T-8 | Cảnh 3D đa tầng từ `HouseDocument` | fe | FR-04.04, 06.02–06.07 | 02b F2 | T-2, T-6 | 2 | ✅ |
+| T-9 | V1 + V2 shell + V4 (panels, chế độ, mobile, chia sẻ, deep link, miễn trừ, branding) | fe | FR-06.*, 09.01 | 02b F3 | T-8 | 1,5 | ✅ |
+| T-10 | Tab Mặt bằng + PDF (font VN, dự phòng in-app) | fe | FR-07.01–04 | 02b F4 | T-9 | 1 | ✅ |
 | **Lát 2 — Công cụ nội bộ & trình dựng** |||||||
 | T-11 | Auth + users + clients + thu hồi phiên + outbox/transport + E1/E2 | be | API-01…05, 10…13 | 02a B4 | T-3 | 1 | ⬜ |
 | T-12 | Route quản trị projects (quyền field, slug khoá) + files + houses + versions + autosave + duplicate | be | API-20…23, 30…36 | 02a B5 (route) | T-5, T-11 | 1 | ⬜ |
