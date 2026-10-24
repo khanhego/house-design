@@ -185,8 +185,16 @@ export class Walker {
     if (!this.query) return null
     const from = this.pos
     const ext = { x: 0.6, y: 0.8, z: 0.6 }
-    const s = this.query.findClosestPoint(from, { halfExtents: ext })
-    const e = this.query.findClosestPoint(to, { halfExtents: { x: 1.5, y: 0.8, z: 1.5 } })
+    // ưu tiên điểm đi được ở đúng độ cao được bấm (sàn), không lấy mặt bàn / mặt giường gần đó
+    const near = (p: V3, h: number) => {
+      for (const y of [0.25, 0.8]) {
+        const r = this.query!.findClosestPoint(p, { halfExtents: { x: h, y, z: h } })
+        if (r.success && Math.abs(r.point.y - p.y) <= y) return r
+      }
+      return { success: false, point: p } as const
+    }
+    const s = near(from, 0.6)
+    const e = near(to, 1.5)
     if (!s.success || !e.success) return null
     const r = this.query.computePath(s.point, e.point, { halfExtents: ext })
     if (!r.success || !r.path.length) return null
@@ -198,7 +206,7 @@ export class Walker {
   /** Điểm đi được gần `p` nhất trên navmesh. */
   closestWalkable(p: V3, ext = 1): V3 | null {
     if (!this.query) return null
-    const r = this.query.findClosestPoint(p, { halfExtents: { x: ext, y: 0.8, z: ext } })
+    const r = this.query.findClosestPoint(p, { halfExtents: { x: ext, y: 0.25, z: ext } })
     return r.success ? r.point : null
   }
 

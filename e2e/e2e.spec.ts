@@ -190,3 +190,29 @@ test('E2E-03: tour ảnh thật — tải ảnh, điểm đi tiếp, duyệt, ph
   await expect(portal.locator('.tbl.leads tr', { hasText: '0944555666' })).toContainText('Ảnh thật · Phòng khách')
   expect([...errors, ...vErrors]).toEqual([])
 })
+
+test('E2E-04: đi bộ trong nhà bằng bộ vật lý — bấm sàn đi sang phòng khác, tự lên cầu thang sang tầng 2 (DEC-53)', async ({ page }) => {
+  const errors = watch(page)
+  await page.goto('/v/sunrise-garden/biet-thu-b2?debug3d=1')
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 20_000 })
+  await page.locator('.floor-list button', { hasText: 'Tầng 1' }).click()
+  await page.locator('.room-chips button', { hasText: 'Phòng khách' }).first().click()
+  await page.click('button:has-text("Đứng trong phòng")')
+  await page.waitForFunction(() => !!(window as unknown as { __hdWalker?: unknown }).__hdWalker, null, { timeout: 30_000 })
+  type W = { __hdAvatar: { pos: { x: number; y: number; z: number } }; __hdWalkTo: (x: number, z: number, y?: number) => number | null }
+  const pos = () => page.evaluate(() => { const p = (window as unknown as W).__hdAvatar.pos; return { x: p.x, y: p.y, z: p.z } })
+  // người mẫu đứng trong phòng khách (không bị kéo về gốc toạ độ khi bộ vật lý vừa nạp xong)
+  await page.waitForTimeout(500)
+  const s = await pos()
+  expect(s.x).toBeGreaterThan(0.3)
+  expect(s.z).toBeGreaterThan(4.3)
+  // bấm sàn bếp ăn (sát bàn ăn) → tự đi tới chỗ đứng được gần nhất
+  expect(await page.evaluate(() => (window as unknown as W).__hdWalkTo(9.5, 10.6, 0))).not.toBeNull()
+  await expect.poll(async () => { const p = await pos(); return Math.hypot(p.x - 9.5, p.z - 10.6) }, { timeout: 30_000 }).toBeLessThan(1)
+  await expect(page.locator('.room-chips button.active', { hasText: 'Bếp & ăn' }).first()).toBeVisible({ timeout: 5_000 })
+  // bấm sàn phòng sinh hoạt tầng 2 → đi lên cầu thang chữ U, tầng 2 tự được chọn
+  expect(await page.evaluate(() => (window as unknown as W).__hdWalkTo(3, 10, 3.8))).not.toBeNull()
+  await expect.poll(async () => (await pos()).y, { timeout: 60_000 }).toBeGreaterThan(3.7)
+  await expect(page.locator('.floor-list button.active', { hasText: 'Tầng 2' }).first()).toBeVisible({ timeout: 10_000 })
+  expect(errors).toEqual([])
+})

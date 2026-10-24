@@ -190,6 +190,9 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   const holdDir = useRef<1 | -1 | 0>(0)
   const arrive = useRef<P2 | null>(null)
   const lastStair = useRef('')
+  const stall = useRef(0)
+  /** bộ vật lý đã nhận vị trí hiện tại của người mẫu chưa */
+  const synced = useRef<Walker | null>(null)
   const insideFloor = floor ?? sortedFloors(doc)[0] ?? null
   const span = Math.max(M(bounds.w), M(bounds.d), M(bounds.top), 8)
 
@@ -321,13 +324,11 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   }, [doc, bounds, floor, roomId, mode, k, resetTick, blockers])
 
   // người mẫu vật lý vừa nạp xong: đặt vào đúng chỗ đang đứng; camera tự tránh tường bằng cần lò xo (không dùng collider của camera-controls)
+  // (đặt người vào bộ vật lý làm ngay trong vòng khung hình — xem `synced` — vì khung hình có thể chạy trước effect)
   useEffect(() => {
     const c = ref.current
-    if (!walker || mode !== 'inside') return
-    const a = avatar.current
-    walker.teleport({ x: a.pos.x, y: a.pos.y, z: a.pos.z })
-    if (c) c.colliderMeshes = []
-  }, [walker, mode, avatar])
+    if (walker && mode === 'inside' && c) c.colliderMeshes = []
+  }, [walker, mode])
 
   // gỡ lỗi (?debug3d=1): cho kiểm thử tự động đọc khoảng cách / vị trí camera
   useEffect(() => {
@@ -432,6 +433,10 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
         }
       }
       let moved = 0
+      if (walker && synced.current !== walker) {
+        walker.teleport({ x: a.pos.x, y: a.pos.y, z: a.pos.z })
+        synced.current = walker
+      }
       if (walker) {
         // bộ vật lý: trọng lực, leo cầu thang, trượt dọc tường, hỗ trợ qua cửa; bấm sàn → đi theo navmesh
         let vel = { x: 0, z: 0 }
@@ -458,7 +463,9 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
         a.pos.set(p.x, p.y, p.z)
         moved = Math.hypot(p.x - before.x, p.z - before.z)
         if (moved > 1e-4) a.heading = faceFwd ? Math.atan2(fwd.x, fwd.z) : Math.atan2(p.x - before.x, p.z - before.z)
-        else if (walkPath3.current && (vel.x || vel.z)) walkPath3.current = null // bị chặn hẳn
+        // bị chặn hẳn ~0,75 s mới bỏ đường (khựng một nhịp khi bước từ dốc thang lên sàn thì vẫn đi tiếp)
+        if (moved > 1e-3 || !(vel.x || vel.z)) stall.current = 0
+        else if (walkPath3.current && ++stall.current > 45) (walkPath3.current = null), (stall.current = 0)
         if (moved > 1e-4 || Math.abs(p.y - before.y) > 1e-4) void c.moveTo(a.pos.x, a.pos.y + (c.distance < 0.8 ? EYE_HEIGHT : FOLLOW_H), a.pos.z, false)
       } else if (goal) {
         // đi bằng phím: có hỗ trợ đi qua cửa (không dính cạnh khung cửa khi đi chéo)
