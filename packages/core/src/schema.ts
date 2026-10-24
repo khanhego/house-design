@@ -160,6 +160,10 @@ export const ViewpointSchema = z.object({
 
 /* Tham quan ảnh thật (item 02, FR-12.*) */
 export const MAX_TOUR_SCENES = 60
+/** Chương của hành trình (CR-3, FR-12.17) — thứ tự cố định */
+export const TOUR_CHAPTERS = ['exterior', 'interior', 'outdoor'] as const
+export type TourChapter = (typeof TOUR_CHAPTERS)[number]
+export const TOUR_CHAPTER_LABEL: Record<TourChapter, string> = { exterior: 'Ngoài nhà', interior: 'Bên trong', outdoor: 'Sân vườn & hồ bơi' }
 const unit = z.number().finite().min(0).max(1)
 export const TourSceneSchema = z.object({
   id,
@@ -174,6 +178,7 @@ export const TourSceneSchema = z.object({
   roomId: id.optional(),
   clipFileId: id.optional(),
   clipSource: z.enum(['upload', 'ai']).optional(),
+  chapter: z.enum(TOUR_CHAPTERS).optional(),
 })
 export const TourSchema = z.object({
   autoplaySec: z.number().int().min(2).max(15),
@@ -256,6 +261,12 @@ export interface HouseMeta {
   bedrooms: number
   bathrooms: number
   description: string | null
+  /** giá bán (₫), null = "liên hệ" (CR-3, FR-12.21) — có thể thiếu ở snapshot cũ */
+  price?: number | null
+  /** diện tích đất (m²) */
+  landArea?: number | null
+  /** điểm nổi bật của căn nhà (≤ 6) */
+  features?: string[]
 }
 
 export interface Snapshot {
@@ -312,6 +323,8 @@ export interface PublicHouseCard {
   bathrooms: number
   floors: number
   coverUrl: string | null
+  /** giá bán đã duyệt (CR-3) */
+  price: number | null
   /** chế độ xem có trong bản phát hành (FR-06.01, CR-2) */
   modes: ('3d' | 'tour')[]
 }

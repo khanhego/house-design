@@ -73,7 +73,9 @@ const WORDS: [RegExp, string][] = [
 
 /** "03-phong-khach.jpg" → "Phòng khách"; tên rỗng → "Cảnh n". */
 export const sceneTitle = (fileName: string, n: number) => {
+  // macOS trả tên tệp dạng tách dấu (NFD) → chuẩn hoá để so khớp từ điển và gợi ý chương
   let t = fileName
+    .normalize('NFC')
     .replace(/\.[^.]+$/, '')
     .replace(/^\s*\d{1,4}\s*[-_.)\s]*/, '')
     .replace(/[-_]+/g, ' ')

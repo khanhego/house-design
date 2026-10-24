@@ -345,11 +345,14 @@ body { background: var(--app-bg); }
 .tour-thumb b.clip { background: #1f4fa3; right: 22px; }
 .tour-main { display: grid; grid-template-columns: 1fr 300px; gap: 14px; min-height: 0; }
 .tour-pick { display: grid; gap: 6px; }
-.tour-pick-img { position: relative; cursor: crosshair; border-radius: 10px; overflow: hidden; background: #111; }
-.tour-pick-img img { width: 100%; height: auto; display: block; }
+/* khung bao sát ảnh để toạ độ bấm đúng tỷ lệ ảnh; ảnh dọc không cao quá màn hình */
+.tour-pick { justify-items: start; }
+.tour-pick-img { position: relative; display: inline-block; max-width: 100%; cursor: crosshair; border-radius: 10px; overflow: hidden; background: #111; line-height: 0; }
+.tour-pick-img img { display: block; max-width: 100%; max-height: 62vh; width: auto; height: auto; }
 .tour-marker { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 3px solid #fff; background: rgba(31, 79, 163, 0.75); box-shadow: 0 0 0 4px rgba(31, 79, 163, 0.35); pointer-events: none; }
 .tour-marker::after { content: '→'; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 14px; }
 .tour-preview { display: grid; gap: 8px; justify-items: start; }
 .tour-preview .tour { height: min(62vh, 560px); border-radius: 10px; }
 .tour-side .ins { position: sticky; top: 0; }
 @media (max-width: 1100px) { .tour-main { grid-template-columns: 1fr; } }
+.tour-thumb i.tour-ch { position: absolute; left: 0; right: 0; bottom: 0; font-style: normal; font-size: 10px; background: rgba(0, 0, 0, 0.65); color: #fff; padding: 2px 4px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

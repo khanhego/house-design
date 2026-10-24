@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import './tour.css'
+import { bringFront, originFor, setFrame } from './frame.ts'
 
 /* Trình xem tour ảnh thật (item 02, V6 · FR-12.05–12.09). Thuần DOM/CSS — không cần WebGL. */
 
@@ -60,20 +61,9 @@ const preload = (url: string) => {
   return loaded.get(url)!
 }
 
-/** Điểm đi tiếp (tỷ lệ trên ảnh) → toạ độ px trong khung khi ảnh phủ kín (object-fit: cover). */
-const originPx = (img: HTMLImageElement, box: DOMRect, p: [number, number] | undefined) => {
-  const [nx, ny] = p ?? [0.5, 0.5]
-  const w = img.naturalWidth || box.width
-  const h = img.naturalHeight || box.height
-  const s = Math.max(box.width / w, box.height / h)
-  const dw = w * s
-  const dh = h * s
-  return `${(box.width - dw) / 2 + nx * dw}px ${(box.height - dh) / 2 + ny * dh}px`
-}
-
 export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIndex = 0, autoplaySec, onIndex, onSceneAction, extra, compact }, ref) => {
   const box = useRef<HTMLDivElement>(null)
-  const layers = [useRef<HTMLImageElement>(null), useRef<HTMLImageElement>(null)]
+  const layers = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)]
   const front = useRef(0)
   const video = useRef<HTMLVideoElement>(null)
   const [cur, setCur] = useState(Math.min(startIndex, Math.max(0, scenes.length - 1)))
@@ -105,7 +95,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
   useEffect(() => {
     const s = scenes[cur]
     const a = layers[front.current].current
-    if (s && a && !a.src) a.src = srcOf(s)
+    if (s && a) void setFrame(a, srcOf(s)).then(() => bringFront(a, null))
     onIndexRef.current?.(cur)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -147,12 +137,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       const A = layers[front.current].current
       const B = layers[1 - front.current].current
       if (!A || !B || !box.current) return void (busyRef.current = false)
-      B.src = url
-      try {
-        await B.decode()
-      } catch {
-        /* ảnh hỏng vẫn chuyển */
-      }
+      await setFrame(B, url)
       if (!alive.current) return void (busyRef.current = false)
       const rect = box.current.getBoundingClientRect()
       const forward = target === from + 1
@@ -165,6 +150,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
         B.style.opacity = '1'
         B.style.zIndex = '2'
         front.current = 1 - front.current
+        bringFront(B, A)
         finish(target)
       }
 
@@ -216,7 +202,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
       }
       if (forward) {
         // "bước tới": ảnh hiện tại phóng vào điểm đi tiếp, ảnh sau thu từ gần về
-        A.style.transformOrigin = originPx(A, rect, sFrom.next)
+        A.style.transformOrigin = originFor(A, rect, sFrom.next)
         A.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.6)', opacity: 1, offset: 0.45 }, { transform: 'scale(2.3)', opacity: 0 }], { duration: DUR, easing: EASE, fill: 'forwards' })
         B.style.transformOrigin = '50% 50%'
         B.animate([{ transform: 'scale(1.35)', opacity: 0 }, { transform: 'scale(1.22)', opacity: 0, offset: 0.35 }, { transform: 'scale(1)', opacity: 1 }], { duration: DUR, easing: EASE, fill: 'forwards' }).onfinish = swap
@@ -224,7 +210,7 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
         // "lùi lại": ảnh hiện tại thu nhỏ mờ đi, ảnh trước lùi ra từ điểm đi tiếp của nó
         A.style.transformOrigin = '50% 50%'
         A.animate([{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(0.82)', opacity: 0 }], { duration: DUR * 0.9, easing: EASE, fill: 'forwards' })
-        B.style.transformOrigin = originPx(B, rect, sTo.next)
+        B.style.transformOrigin = originFor(B, rect, sTo.next)
         B.animate([{ transform: 'scale(2.3)', opacity: 0 }, { transform: 'scale(1.6)', opacity: 1, offset: 0.55 }, { transform: 'scale(1)', opacity: 1 }], { duration: DUR, easing: EASE, fill: 'forwards' }).onfinish = swap
       }
     },
@@ -300,8 +286,12 @@ export const TourPlayer = forwardRef<TourPlayerHandle, Props>(({ scenes, startIn
 
   return (
     <div ref={box} className={`tour${compact ? ' tour-compact' : ''}`} onPointerDown={onPointerDown} onPointerUp={onPointerUp} tabIndex={-1} aria-roledescription="tham quan ảnh" aria-label={`Cảnh ${cur + 1}/${scenes.length}: ${s.title}`}>
-      <img ref={layers[0]} className="tour-img" alt="" draggable={false} style={{ opacity: 1, zIndex: 2 }} />
-      <img ref={layers[1]} className="tour-img" alt="" draggable={false} style={{ opacity: 0, zIndex: 1 }} />
+      {[0, 1].map((k) => (
+        <div key={k} ref={layers[k]} className="tour-layer" style={{ opacity: k ? 0 : 1, zIndex: k ? 1 : 2 }}>
+          <img className="tour-bg" alt="" draggable={false} />
+          <div className="tour-drift"><img className="tour-fg" alt="" draggable={false} /></div>
+        </div>
+      ))}
       <video ref={video} className="tour-video" muted playsInline preload="auto" style={{ display: showVideo ? 'block' : 'none' }} />
       {showVideo && <button className="tour-skip" onClick={() => skipClip.current?.()}>Bỏ qua clip ›</button>}
 

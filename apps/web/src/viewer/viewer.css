@@ -300,3 +300,4 @@
 .v-tour { position: absolute; inset: 0; }
 .v-tour-note { position: absolute; right: 16px; top: 12px; z-index: 6; margin: 0; font-size: 11px; color: #fff; background: rgba(0, 0, 0, 0.45); padding: 4px 10px; border-radius: 999px; }
 .house-card .modes { display: flex; gap: 4px; flex-wrap: wrap; }
+.house-card-price { margin: 0; font-weight: 600; font-size: 15px; }

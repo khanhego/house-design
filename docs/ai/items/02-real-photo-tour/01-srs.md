@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Item | `02-real-photo-tour` · lane feature · quy mô S |
-| Phiên bản | 1.0 — Approved (G1 ✅ 2026-10-24 · khanhtt) · Q-1 = A + C (Phase 1), B ở Phase 2 |
+| Phiên bản | 1.1 — CR-3 (user duyệt 2026-10-25): chế độ Phim, chương, chất điện ảnh, khối thông số + giá · 1.0 — Approved (G1 ✅ 2026-10-24) · Q-1 = A + C |
 | Liên quan SRS hệ thống | CR-2 (`docs/ai/system/SRS.md` v0.4): thêm module **M12**, màn **V6**, **A7**; sửa FR-08.02 |
 | Nguồn | Yêu cầu user 2026-10-24 · video tham chiếu "NEW Era of 3D Websites is here!" (Marcin AI, youtu.be/lGFJ-jt4hhU) · demo `laquillaestate.lovable.app` (khảo sát 2026-10-24) · ảnh "prompt mẫu" user nhắc tới **chưa nhận được** (Q-5) |
 | Owner | khanhtt |
@@ -218,6 +218,36 @@ Trạng thái: đang tải (ảnh mờ + vòng tải) · ảnh kế chưa tải 
 | R-T1 | Clip AI "bịa" chi tiết không có thật → rủi ro quảng cáo sai (BR-T4, dòng miễn trừ, người duyệt xem trước) | Rủi ro | |
 | R-T2 | Ảnh chụp không theo quy tắc nối cảnh → chuyển cảnh mô phỏng giật, cảm giác "nhảy" | Rủi ro — giảm bằng kịch bản §11 và xem thử ở A7 | |
 | R-T3 | Ảnh gốc 5–15 MB × 60 → dung lượng lưu trữ; cần tối ưu và giới hạn | Rủi ro | |
+
+## 12b. CR-3 — Chế độ "Phim" (user duyệt 2026-10-25)
+
+**Nguồn:** câu lệnh mẫu user gửi (ảnh, phần đầu): *"cinematic luxury real estate website… one continuous scroll driven journey through the home… begin outside the property, move naturally through the interior, and end with a full backyard and pool reveal… feel like a private architectural film… inputs: name/address, location, price, property facts (square footage, bedrooms, bathrooms, lot size, key features)"*. User chọn làm cả 4 ý và yêu cầu demo bằng **ảnh chụp nhà thật** (không dùng ảnh dựng từ 3D).
+
+| ID | Yêu cầu | Ưu tiên | Nguồn |
+|---|---|:---:|---|
+| FR-12.16 | Trình xem phải có chế độ **Phim**: cuộn chuột / vuốt dọc / phím ↓↑ / Space để đi liên tục qua các cảnh; chuyển cảnh **gắn theo vị trí cuộn** (cuộn nửa chừng thì đang "đi" nửa đường), có clip thì tua clip theo cuộn; thanh tiến độ dọc có tên chương. Chế độ **Từng cảnh** (nút ‹ ›) giữ nguyên; người xem đổi qua lại được | M | ý 1 |
+| FR-12.17 | Mỗi cảnh thuộc một **chương**: Ngoài nhà · Bên trong · Sân vườn & hồ bơi (đặt ở A7, mặc định gợi ý theo tên cảnh). Vào cảnh đầu của chương thì hiện **màn tiêu đề chương** chữ lớn | M | ý 2 |
+| FR-12.18 | Cảnh cuối là **màn "lộ"**: ảnh lùi chậm toàn cảnh, hiện tên căn nhà, khối thông số, nút liên hệ | M | ý 2 |
+| FR-12.19 | Chất điện ảnh: ảnh **trôi chậm** khi đứng yên (≤ 6% trong 12 s), chữ hiện dần theo cảnh, giao diện tối, khung hình tràn màn; **ảnh dọc** hiện nguyên ảnh trên nền mờ của chính nó thay vì cắt | M | ý 3 |
+| FR-12.20 | **Khối thông số** ở màn mở đầu và màn lộ: giá (tuỳ chọn), diện tích sàn, diện tích đất (tuỳ chọn), phòng ngủ, phòng tắm, số tầng, vị trí (dự án), tối đa 6 điểm nổi bật của căn nhà | M | ý 4 |
+| FR-12.21 | Mẫu nhà có thêm trường **Giá bán** (₫, tuỳ chọn), **Diện tích đất** (m², tuỳ chọn), **Điểm nổi bật** (≤ 6 dòng). Giá nằm trong bản duyệt — chủ đầu tư duyệt giá trước khi công khai; để trống thì hiện "Giá: liên hệ" | M | ý 4 |
+| FR-12.22 | Mẫu nhà chỉ có tour mở mặc định ở chế độ **Phim**; mẫu có cả 3D mở tab 3D như cũ | S | |
+
+| ID | Quy tắc | Ví dụ |
+|---|---|---|
+| BR-T6 | Giá hiển thị làm tròn kiểu Việt: ≥ 1 tỷ → "12,5 tỷ ₫"; < 1 tỷ → "850 triệu ₫" | 12 500 000 000 → "12,5 tỷ ₫" |
+| BR-T7 | Giá thay đổi = thay đổi nội dung → phải duyệt lại (đi theo phiên bản như mô tả) | Sửa giá sau khi phát hành → tạo phiên bản mới |
+| BR-T8 | Chương phải theo thứ tự Ngoài nhà → Bên trong → Sân vườn & hồ bơi khi xem; cảnh không gán chương thuộc chương của cảnh trước (cảnh 1 mặc định Ngoài nhà) | |
+
+**Ngoài phạm vi CR-3:** nhạc nền (để sau), tự tạo clip bằng AI (FR-12.14, Phase 2). Phần sau của câu lệnh mẫu chưa nhận được — đối chiếu bổ sung khi có.
+
+**Nghiệm thu bổ sung**
+| ID | Tiêu chí | Cách kiểm |
+|---|---|---|
+| AC-T8 | Chế độ Phim: cuộn 1 "màn" = sang 1 cảnh; dừng cuộn giữa chừng thì hình dừng giữa chuyển cảnh; cuộn ngược đi lùi | Thao tác |
+| AC-T9 | Tour 3 chương: hiện đúng 3 màn tiêu đề chương theo thứ tự; cảnh cuối hiện màn lộ với tên + thông số + nút liên hệ | Tour mẫu ảnh thật |
+| AC-T10 | Giá 12,5 tỷ hiện "12,5 tỷ ₫"; để trống hiện "Giá: liên hệ"; sửa giá sau phát hành không đổi trang công khai cho tới khi phát hành bản mới | Thử |
+| AC-T11 | Ảnh dọc hiện đủ (không mất đầu/chân) trên nền mờ | Ảnh dọc mẫu |
 
 ## 13. Nghiệm thu
 

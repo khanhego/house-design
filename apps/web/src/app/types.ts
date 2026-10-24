@@ -43,6 +43,9 @@ export interface HouseRow {
   bedrooms: number
   bathrooms: number
   description: string | null
+  price?: number | null
+  landArea?: number | null
+  features?: string[]
   publishedVersionId: string | null
   latestVersion: VersionRef | null
   published: { versionId: string; number: number; publishedAt: string | null } | null

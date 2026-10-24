@@ -115,6 +115,9 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
       bedrooms: house.bedrooms,
       bathrooms: house.bathrooms,
       description: house.description,
+      price: house.price,
+      landArea: house.landArea,
+      features: house.features,
     },
     resolved: { libraryItems, models, files: filesOut },
   }

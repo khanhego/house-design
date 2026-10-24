@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { formatPriceVnd } from '@hd/core'
 import type { PublicProjectPayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
@@ -63,6 +64,7 @@ export const ProjectPage = ({ data, onLead, onContact }: { data: PublicProjectPa
                     <p className="muted">
                       {fmtArea(h.declaredArea)} · {h.bedrooms} PN{h.floors ? ` · ${h.floors} tầng` : ''}
                     </p>
+                    {formatPriceVnd(h.price) && <p className="house-card-price">{formatPriceVnd(h.price)}</p>}
                     <span className="btn primary small">{h.modes?.includes('3d') === false ? 'Xem ảnh thật' : 'Xem 3D'}</span>
                   </div>
                 </Link>

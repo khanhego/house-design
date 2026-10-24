@@ -217,6 +217,9 @@ const toHouse = (r: Row): House => ({
   bedrooms: r.bedrooms as number,
   bathrooms: r.bathrooms as number,
   description: (r.description as string) ?? null,
+  price: (r.price as number) ?? null,
+  landArea: (r.land_area as number) ?? null,
+  features: parseJson(r.features_json, []),
   publishedVersionId: (r.published_version_id as string) ?? null,
   sortOrder: r.sort_order as number,
   createdAt: r.created_at as string,
@@ -224,12 +227,12 @@ const toHouse = (r: Row): House => ({
 })
 
 export const houses = (db: Db) => ({
-  create(h: Pick<House, 'projectId' | 'slug' | 'name' | 'houseType' | 'declaredArea'> & Partial<Pick<House, 'bedrooms' | 'bathrooms' | 'description' | 'sortOrder'>>): House {
+  create(h: Pick<House, 'projectId' | 'slug' | 'name' | 'houseType' | 'declaredArea'> & Partial<Pick<House, 'bedrooms' | 'bathrooms' | 'description' | 'sortOrder' | 'price' | 'landArea' | 'features'>>): House {
     const id = newId('hou')
     const t = nowIso()
     db.run(
-      'INSERT INTO houses (id, project_id, slug, name, house_type, declared_area, bedrooms, bathrooms, description, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-      id, h.projectId, h.slug, h.name, h.houseType, h.declaredArea, h.bedrooms ?? 0, h.bathrooms ?? 0, h.description ?? null, h.sortOrder ?? 0, t, t,
+      'INSERT INTO houses (id, project_id, slug, name, house_type, declared_area, bedrooms, bathrooms, description, price, land_area, features_json, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      id, h.projectId, h.slug, h.name, h.houseType, h.declaredArea, h.bedrooms ?? 0, h.bathrooms ?? 0, h.description ?? null, h.price ?? null, h.landArea ?? null, JSON.stringify(h.features ?? []), h.sortOrder ?? 0, t, t,
     )
     return this.get(id)!
   },
@@ -247,8 +250,8 @@ export const houses = (db: Db) => ({
     if (!cur) return undefined
     const n = { ...cur, ...p }
     db.run(
-      'UPDATE houses SET slug=?, slug_locked=?, name=?, house_type=?, declared_area=?, bedrooms=?, bathrooms=?, description=?, published_version_id=?, sort_order=?, updated_at=? WHERE id=?',
-      n.slug, n.slugLocked, n.name, n.houseType, n.declaredArea, n.bedrooms, n.bathrooms, n.description, n.publishedVersionId, n.sortOrder, nowIso(), id,
+      'UPDATE houses SET slug=?, slug_locked=?, name=?, house_type=?, declared_area=?, bedrooms=?, bathrooms=?, description=?, price=?, land_area=?, features_json=?, published_version_id=?, sort_order=?, updated_at=? WHERE id=?',
+      n.slug, n.slugLocked, n.name, n.houseType, n.declaredArea, n.bedrooms, n.bathrooms, n.description, n.price, n.landArea, JSON.stringify(n.features), n.publishedVersionId, n.sortOrder, nowIso(), id,
     )
     return this.get(id)!
   },

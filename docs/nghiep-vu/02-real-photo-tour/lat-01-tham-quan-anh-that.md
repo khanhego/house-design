@@ -91,6 +91,21 @@ Người xem thấy ảnh toàn khung. Bấm › thì ảnh hiện tại phóng 
 | Xếp ảnh, tên cảnh có dấu | `apps/web/src/tour/order.ts` | `apps/web/test/viewer.test.ts` — "tour ảnh thật" |
 | Tab "Ảnh thật" trong trình dựng, kịch bản chụp | `app/studio/editor/TourTab.tsx`, `tour/guide.ts` | E2E-03 |
 
+## 6b. CR-3 — Chế độ "Phim" (2026-10-25)
+
+Câu lệnh mẫu user gửi yêu cầu trang "như một bộ phim kiến trúc": cuộn để đi liên tục, bắt đầu từ ngoài nhà, qua nội thất, kết bằng màn "lộ" sân sau và hồ bơi; có giá và thông số. Bổ sung:
+
+| Phần | Người dùng thấy gì | Code |
+|---|---|---|
+| Chế độ **Phim** (mặc định) | Cuộn chuột hoặc vuốt dọc tới đâu thì "đi" tới đó: cuộn nửa chừng là đang đi nửa đường; phím ↓/Space sang cảnh sau. Thanh chương bên phải để nhảy | `apps/web/src/tour/TourFilm.tsx` |
+| **Chương** | Mỗi cảnh thuộc Ngoài nhà / Bên trong / Sân vườn & hồ bơi; vào chương mới hiện màn tiêu đề chữ lớn. Khi nhập ảnh, hệ thống tự gợi ý chương theo tên cảnh; cảnh không gán chương thì theo cảnh trước (BR-T8) | `packages/core/src/rules.ts` (`sceneChapters`, `guessChapter`), A7 |
+| **Màn mở đầu và màn lộ** | Mở đầu: tên căn, vị trí, giá, thông số. Kết: ảnh cuối lùi chậm, tên căn, thông số đầy đủ, điểm nổi bật, nút "Đặt lịch xem nhà · Để lại SĐT" | `TourFilm.tsx`, `TourFacts.tsx` |
+| **Chất điện ảnh** | Ảnh trôi chậm khi đứng yên; ảnh dọc hiện đủ trên nền mờ của chính nó; nền tối, chữ lớn | `tour/frame.ts`, `tour.css` |
+| **Giá & thông số** | Hộp "Thông tin & giá" trong trình dựng: giá (nhập theo tỷ), diện tích đất, tối đa 6 điểm nổi bật. Giá hiện kiểu "12,5 tỷ ₫"; để trống thì "Giá: liên hệ" (BR-T6). Giá nằm trong bản duyệt: sửa sau khi phát hành thì trang công khai giữ giá cũ tới khi phát hành bản mới (BR-T7) | `HouseInfo.tsx`, migration `003_house_facts.sql`, `snapshot.ts` |
+| Thẻ mẫu nhà ở trang dự án | Có nhãn "3D" / "Ảnh thật" và giá | `ProjectPage.tsx` |
+
+**Dữ liệu thử ảnh thật:** `data/data-test-tour-that/` gồm 13 ảnh Stahl House (Los Angeles) của Amelia Pergl, Wikimedia Commons, giấy phép CC BY 2.0. Ghi công trong `CREDITS.txt` và trong mô tả mẫu nhà thử. Chỉ dùng thử nội bộ (DEC-T9).
+
 ## 7. Giới hạn hiện tại
 - Chưa tự gọi AI tạo clip (Phase 2, FR-12.14). Hiện đội dựng tạo clip ngoài hệ thống rồi tải lên.
 - Chưa có tour rẽ nhánh (một tuyến thẳng).

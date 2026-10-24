@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { floorHasContent, MAX_TOUR_SCENES, newId, sortedFloors } from '@hd/core'
+import { floorHasContent, guessChapter, MAX_TOUR_SCENES, newId, sceneChapters, sortedFloors, TOUR_CHAPTER_LABEL, TOUR_CHAPTERS } from '@hd/core'
 import type { TourScene } from '@hd/core'
 import { api, upload } from '../../../lib/api.ts'
 import { Button, copyText, errMsg, toast } from '../../ui.tsx'
@@ -90,7 +90,11 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
     const { items, by } = orderPhotos(done.map((d) => ({ ...d, takenAt: d.takenAt })))
     qc.setQueryData<Record<string, string>>(['files', projectId, 'tour'], (m) => ({ ...(m ?? {}), ...Object.fromEntries(items.flatMap((d) => [[d.image.id, d.image.url], [d.small.id, d.small.url]])) }))
     const base = scenes.length
-    const added: TourScene[] = items.map((d, i) => ({ id: newId('scn'), fileId: d.image.id, smallFileId: d.small.id, title: sceneTitle(d.name, base + i + 1), highlights: [] }))
+    const added: TourScene[] = items.map((d, i) => {
+      const title = sceneTitle(d.name, base + i + 1)
+      const chapter = guessChapter(title)
+      return { id: newId('scn'), fileId: d.image.id, smallFileId: d.small.id, title, highlights: [], ...(chapter ? { chapter } : {}) }
+    })
     // kiểm lại giới hạn trên danh sách mới nhất (hai lần thả liên tiếp)
     setTour((l) => [...l, ...added].slice(0, MAX_TOUR_SCENES))
     setSelId(added[0].id)
@@ -154,6 +158,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
   }
 
   const missingNext = scenes.slice(0, -1).filter((s) => !s.next).length
+  const chapters = sceneChapters(scenes)
 
   return (
     <div className="tour-tab">
@@ -205,6 +210,7 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
               >
                 {url(s.smallFileId) ? <img src={url(s.smallFileId)} alt="" /> : <span />}
                 <em>{i + 1}</em>
+                {(i === 0 || chapters[i] !== chapters[i - 1]) && <i className="tour-ch">{TOUR_CHAPTER_LABEL[chapters[i]]}</i>}
                 {i < scenes.length - 1 && !s.next && <b className="warn" title="Chưa đặt điểm đi tiếp">!</b>}
                 {s.clipFileId && <b className="clip" title="Có clip chuyển cảnh">▶</b>}
               </button>
@@ -253,6 +259,12 @@ export const TourTab = ({ projectId }: { projectId: string }) => {
           {sel ? (
             <div className="ins">
               <h3>Cảnh {selIdx + 1}</h3>
+              <label className="ins-field"><span>Chương</span>
+                <select disabled={locked} value={sel.chapter ?? ''} onChange={(e) => setScene(sel.id, (s) => (e.target.value ? (s.chapter = e.target.value as TourScene['chapter']) : delete s.chapter), 'ch')}>
+                  <option value="">Theo cảnh trước ({TOUR_CHAPTER_LABEL[chapters[selIdx] ?? 'exterior']})</option>
+                  {TOUR_CHAPTERS.map((c) => <option key={c} value={c}>{TOUR_CHAPTER_LABEL[c]}</option>)}
+                </select>
+              </label>
               <label className="ins-field"><span>Tên cảnh</span><input disabled={locked} maxLength={80} value={sel.title} onChange={(e) => setScene(sel.id, (s) => (s.title = e.target.value), 't')} /></label>
               <label className="ins-field"><span>Mô tả</span><textarea rows={2} disabled={locked} maxLength={300} value={sel.description ?? ''} onChange={(e) => setScene(sel.id, (s) => (s.description = e.target.value || undefined), 'd')} /></label>
               {[0, 1, 2].map((k) => (

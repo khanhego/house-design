@@ -147,3 +147,13 @@ describe('BR-T3 — clip chuyển cảnh khi đổi thứ tự / xoá / thay ả
     expect(t.list.filter((s) => s.clipFileId).map((s) => s.id)).toEqual(['s1', 's4', 's5'])
   })
 })
+
+describe('tên tệp tách dấu (macOS NFD)', async () => {
+  const { sceneTitle } = await import('../src/tour/order.ts')
+  const { guessChapter } = await import('@hd/core')
+  it('chuẩn hoá NFC, gợi ý chương đúng', () => {
+    const t = sceneTitle('08-Sân vườn và hồ bơi.jpg'.normalize('NFD'), 8)
+    expect(t).toBe('Sân vườn và hồ bơi')
+    expect(guessChapter(t)).toBe('outdoor')
+  })
+})

@@ -363,6 +363,10 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
     bathrooms: z.number().int().min(0).max(50).optional(),
     description: optText(4000),
     sortOrder: z.number().int().min(0).max(1000).optional(),
+    // CR-3: giá (₫), diện tích đất, điểm nổi bật — nằm trong bản duyệt (BR-T7)
+    price: z.number().int().min(0).max(10_000_000_000_000).nullable().optional(),
+    landArea: z.number().positive().max(10_000_000).nullable().optional(),
+    features: z.array(z.string().trim().min(1).max(80)).max(6).optional(),
   })
 
   app.get<{ Params: { id: string } }>('/api/v1/projects/:id/houses', async (req) => {
@@ -411,7 +415,7 @@ export const registerProjects = async (app: FastifyInstance, ctx: Ctx) => {
     if (ctx.repos.houses.bySlug(project.id, b.slug)) throw new AppError(409, 'SLUG_TAKEN', 'Đường dẫn đã được dùng trong dự án', { fields: { slug: 'Đường dẫn đã được dùng' } })
     const latest = ctx.repos.versions.latest(house.id)!
     const { h, v } = ctx.db.tx(() => {
-      const h = ctx.repos.houses.create({ projectId: project.id, slug: b.slug, name: b.name, houseType: house.houseType, declaredArea: house.declaredArea, bedrooms: house.bedrooms, bathrooms: house.bathrooms, description: house.description, sortOrder: house.sortOrder + 1 })
+      const h = ctx.repos.houses.create({ projectId: project.id, slug: b.slug, name: b.name, houseType: house.houseType, declaredArea: house.declaredArea, bedrooms: house.bedrooms, bathrooms: house.bathrooms, description: house.description, price: house.price, landArea: house.landArea, features: house.features, sortOrder: house.sortOrder + 1 })
       const v = ctx.repos.versions.create(h.id, 1, cloneDocument(JSON.parse(latest.document)))
       return { h, v }
     })

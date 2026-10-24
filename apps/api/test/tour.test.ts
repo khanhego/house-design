@@ -106,6 +106,10 @@ describe('mẫu nhà chỉ có tour', () => {
     bad.tour!.scenes[0].smallFileId = 'fil_khong_co'
     expect((await t.call('PUT', `/api/v1/versions/${versionId}/document`, { cookie: producer, body: { document: bad }, headers: { 'if-match': String(saved.json.revision) } })).json.error.code).toBe('DOCUMENT_INVALID')
 
+    // CR-3: giá, diện tích đất, điểm nổi bật — nằm trong bản duyệt (BR-T7)
+    const patched = await t.call('PATCH', `/api/v1/houses/${houseId}`, { cookie: producer, body: { price: 12_500_000_000, landArea: 180, features: ['Hồ bơi tràn', 'View thành phố'] } })
+    expect(patched.status, patched.body).toBe(200)
+    expect((await t.call('PATCH', `/api/v1/houses/${houseId}`, { cookie: producer, body: { features: ['1', '2', '3', '4', '5', '6', '7'] } })).status).toBe(400)
     expect((await t.call('POST', `/api/v1/versions/${versionId}/submit`, { cookie: admin })).status).toBe(200)
     const sub = t.ctx.repos.versions.get(versionId)!.currentSubmissionId!
     await t.call('POST', `/api/v1/versions/${versionId}/review-on-behalf`, { cookie: admin, body: { decision: 'approved', note: 'Duyệt tour qua Zalo', evidenceFileId: (await upload(t, '/api/v1/files', admin, { name: 'z.png', content: await photo(10, 10, '#fff') }, { kind: 'evidence', projectId })).json.file.id, submissionId: sub } })
@@ -115,6 +119,10 @@ describe('mẫu nhà chỉ có tour', () => {
     expect(pub.json.houses[0].modes).toEqual(['tour'])
     const house = (await t.call('GET', '/api/v1/public/projects/du-an-tour/houses/nha-pho-le-loi')).json
     expect(house.document.tour.scenes).toHaveLength(3)
+    expect(house.house).toMatchObject({ price: 12_500_000_000, landArea: 180, features: ['Hồ bơi tràn', 'View thành phố'] })
+    // sửa giá sau khi phát hành: trang công khai giữ giá đã duyệt
+    await t.call('PATCH', `/api/v1/houses/${houseId}`, { cookie: producer, body: { price: 9_000_000_000 } })
+    expect((await t.call('GET', '/api/v1/public/projects/du-an-tour/houses/nha-pho-le-loi')).json.house.price).toBe(12_500_000_000)
     const url = house.resolved.files[house.document.tour.scenes[1].fileId]
     expect(url).toBeTruthy()
     expect((await t.app.inject({ method: 'GET', url })).statusCode).toBe(200) // ảnh tour công khai sau phát hành

@@ -251,6 +251,8 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
         {tab === 'tour' ? (
           <TourStage
             doc={doc}
+            house={data.house}
+            location={data.project.location}
             files={data.resolved.files}
             floors={floors}
             has3d={has3d}

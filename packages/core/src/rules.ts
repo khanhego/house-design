@@ -2,6 +2,7 @@ import { bboxOf, centroid, isSimplePolygon, pointInPolygon, polygonArea, wallsOu
 import { unreachableRooms } from './reach.ts'
 import { newId } from './ids.ts'
 import { MAX_FLOORS } from './schema.ts'
+import type { TourChapter } from './schema.ts'
 import type { Floor, HouseDocument, ModelReport, PlacedItem, Point } from './schema.ts'
 
 export const DEFAULT_DISCLAIMER =
@@ -174,6 +175,30 @@ export const floorHasContent = (f: Floor) => f.walls.length > 0 || f.rooms.lengt
 export const hasModel3d = (doc: HouseDocument) => doc.floors.some(floorHasContent) || !!doc.wholeModel
 /** Mẫu nhà có tour ảnh thật dùng được (≥ 2 cảnh). */
 export const hasTour = (doc: HouseDocument) => (doc.tour?.scenes.length ?? 0) >= 2
+
+/** Giá kiểu Việt (BR-T6): ≥ 1 tỷ → "12,5 tỷ ₫"; < 1 tỷ → "850 triệu ₫"; trống → null. */
+export const formatPriceVnd = (v: number | null | undefined): string | null => {
+  if (!v || v <= 0) return null
+  const nf = (n: number, d: number) => n.toLocaleString('vi-VN', { maximumFractionDigits: d })
+  if (v >= 1e9) return `${nf(v / 1e9, 2)} tỷ ₫`
+  if (v >= 1e6) return `${nf(Math.round(v / 1e6), 0)} triệu ₫`
+  return `${nf(v, 0)} ₫`
+}
+
+/** Chương của từng cảnh theo BR-T8: cảnh chưa gán lấy chương của cảnh trước, cảnh 1 mặc định "Ngoài nhà". */
+export const sceneChapters = (scenes: { chapter?: TourChapter }[]): TourChapter[] => {
+  let cur: TourChapter = 'exterior'
+  return scenes.map((s) => (cur = s.chapter ?? cur))
+}
+
+/** Gợi ý chương từ tên cảnh (A7, khi nhập ảnh). */
+export const guessChapter = (title: string): TourChapter | undefined => {
+  const t = title.normalize('NFC').toLowerCase()
+  if (/hồ bơi|bể bơi|sân vườn|sân sau|vườn|sân thượng|ban công|hiên sau|pool|garden|terrace|backyard/.test(t)) return 'outdoor'
+  if (/mặt tiền|cổng|sân trước|lối vào|ngoài nhà|facade|exterior|entrance/.test(t)) return 'exterior'
+  if (/phòng|bếp|sảnh|wc|cầu thang|hành lang|lô gia|kitchen|living|bedroom|bath|room/.test(t)) return 'interior'
+  return undefined
+}
 
 export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => {
   const out: Check[] = []

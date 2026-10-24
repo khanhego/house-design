@@ -14,6 +14,7 @@ import { PlanCanvas } from './PlanCanvas.tsx'
 import type { FileInfo } from './PlanCanvas.tsx'
 import { Inspector } from './Inspector.tsx'
 import { FloorList } from './FloorList.tsx'
+import { HouseInfoDialog } from './HouseInfo.tsx'
 
 const ModelTab = lazy(() => import('./ModelTab.tsx').then((m) => ({ default: m.ModelTab })))
 const ItemsTab = lazy(() => import('./ItemsTab.tsx').then((m) => ({ default: m.ItemsTab })))
@@ -63,6 +64,7 @@ export const EditorPage = ({ me }: { me: Me }) => {
   const inputs = useQuery({ queryKey: ['files', projectId], queryFn: () => api<{ items: FileOut[] }>('GET', `projects/${projectId}/files`), enabled: !!projectId })
 
   const [checks, setChecks] = useState<Check[]>([])
+  const [info, setInfo] = useState(false)
   const [calib, setCalib] = useState<{ measured: number; apply: (n: number) => void } | null>(null)
   const [thick, setThick] = useState(200)
   const [ortho, setOrtho] = useState(true)
@@ -151,6 +153,7 @@ export const EditorPage = ({ me }: { me: Me }) => {
         <span className={`ed-save ${saveState}`}>{saveState === 'saved' && savedAt ? `Đã lưu lúc ${new Date(savedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : SAVE_LABEL[saveState]}</span>
         <Button small onClick={doUndo} disabled={!undoN} title="Hoàn tác (Ctrl+Z)">↶</Button>
         <Button small onClick={doRedo} disabled={!redoN} title="Làm lại (Ctrl+Shift+Z)">↷</Button>
+        {house.data && <Button small onClick={() => setInfo(true)}>Thông tin & giá</Button>}
         <a className="ab ab-sm" href={`/portal/review/${version.data!.id}`} target="_blank" rel="noreferrer">Xem trước</a>
         {me.role === 'admin' && <Link className="ab ab-sm ab-primary" to={`/studio/houses/${houseId}/versions`}>Phiên bản & phát hành</Link>}
       </header>
@@ -226,6 +229,7 @@ export const EditorPage = ({ me }: { me: Me }) => {
           <footer className="am-foot" style={{ padding: '0 20px 18px' }}><Button kind="primary" onClick={() => void reload()}>Tải lại</Button></footer>
         </Modal>
       )}
+      {info && house.data && <HouseInfoDialog house={house.data.house} onClose={() => setInfo(false)} />}
       {calib && <CalibrateDialog measured={calib.measured} onClose={() => setCalib(null)} onApply={(n) => (calib.apply(n), setCalib(null), toast('Đã hiệu chỉnh tỷ lệ'))} />}
     </div>
   )

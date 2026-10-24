@@ -67,6 +67,7 @@ export const publicProject = (ctx: Ctx, slug: string): PublicProjectPayload => {
       bathrooms: s.house.bathrooms,
       floors: s.document.floors.filter(floorHasContent).length,
       coverUrl: s.document.coverFileId ? s.resolved.files[s.document.coverFileId] ?? null : null,
+      price: s.house.price ?? null,
       modes: [...(hasModel3d(s.document) ? (['3d'] as const) : []), ...(hasTour(s.document) ? (['tour'] as const) : [])],
     })
   }

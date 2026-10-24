@@ -58,6 +58,11 @@ export interface House {
   bedrooms: number
   bathrooms: number
   description: string | null
+  /** giá bán ₫ (CR-3) */
+  price: number | null
+  /** diện tích đất m² */
+  landArea: number | null
+  features: string[]
   publishedVersionId: string | null
   sortOrder: number
   createdAt: string

@@ -1,14 +1,17 @@
-import { useEffect, useMemo } from 'react'
-import type { Floor, HouseDocument, TourScene } from '@hd/core'
+import { useEffect, useMemo, useState } from 'react'
+import type { Floor, HouseDocument, HouseMeta, TourScene } from '@hd/core'
+import { TourFilm } from './TourFilm.tsx'
+import type { FilmScene } from './TourFilm.tsx'
 import { TourPlayer } from './TourPlayer.tsx'
-import type { PlayerScene } from './TourPlayer.tsx'
 
 const opened = new Set<string>()
 const completed = new Set<string>()
 
 /** Tab "Ảnh thật" trong V2 (V6): chuyển dữ liệu tour đã phát hành sang trình xem, ghi sự kiện. */
-export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, onAction }: {
+export const TourStage = ({ doc, files, floors, has3d, house, location, onLead, events, onScene, onAction }: {
   doc: HouseDocument
+  house: HouseMeta
+  location?: string | null
   files: Record<string, string>
   floors: Floor[]
   has3d: boolean
@@ -18,7 +21,7 @@ export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, 
   onAction: (scene: TourScene, action: '3d' | 'plan') => void
 }) => {
   const raw = useMemo(() => (doc.tour?.scenes ?? []).filter((s) => files[s.fileId] && files[s.smallFileId]), [doc.tour, files])
-  const scenes: PlayerScene[] = useMemo(
+  const scenes: FilmScene[] = useMemo(
     () =>
       raw.map((s) => {
         const room = s.floorId && s.roomId ? floors.find((f) => f.id === s.floorId)?.rooms.find((r) => r.id === s.roomId) : undefined
@@ -32,6 +35,7 @@ export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, 
           srcSmall: files[s.smallFileId],
           clip: s.clipFileId ? files[s.clipFileId] ?? null : null,
           roomLabel: has3d && room ? room.name.toLowerCase() : null,
+          chapter: s.chapter,
         }
       }),
     [raw, files, floors, has3d],
@@ -42,27 +46,39 @@ export const TourStage = ({ doc, files, floors, has3d, onLead, events, onScene, 
     if (!opened.has(key)) (opened.add(key), events.tourOpen?.())
   }, [key])
   const hasClipAi = raw.some((s) => s.clipSource === 'ai')
+  // mặc định chế độ Phim (FR-12.22); người xem đổi sang Từng cảnh được
+  const [mode, setMode] = useState<'film' | 'steps'>('film')
+  const onIndex = (i: number) => {
+    onScene(scenes[i].id)
+    events.tourScene?.(scenes[i].id)
+    if (i === scenes.length - 1 && !completed.has(key)) {
+      completed.add(key)
+      events.tourComplete?.()
+    }
+  }
+  const onSceneAction = (i: number, action: '3d' | 'plan') => {
+    const s = raw.find((x) => x.id === scenes[i].id)
+    if (s) onAction(s, action)
+  }
 
   if (scenes.length < 2) return <div className="v-splash">Tour ảnh chưa sẵn sàng.</div>
   return (
     <div className="v-tour">
-      <TourPlayer
-        scenes={scenes}
-        autoplaySec={doc.tour?.autoplaySec ?? 4}
-        onIndex={(i) => {
-          onScene(scenes[i].id)
-          events.tourScene?.(scenes[i].id)
-          if (i === scenes.length - 1 && !completed.has(key)) {
-            completed.add(key)
-            events.tourComplete?.()
-          }
-        }}
-        onSceneAction={(i, action) => {
-          const s = raw.find((x) => x.id === scenes[i].id)
-          if (s) onAction(s, action)
-        }}
-        extra={onLead && <button onClick={onLead}>Để lại SĐT để được tư vấn</button>}
-      />
+      {mode === 'film' ? (
+        <TourFilm scenes={scenes} house={house} location={location} floors={floors.length || undefined} onIndex={onIndex} onLead={onLead} onSceneAction={onSceneAction} />
+      ) : (
+        <TourPlayer
+          scenes={scenes}
+          autoplaySec={doc.tour?.autoplaySec ?? 4}
+          onIndex={onIndex}
+          onSceneAction={onSceneAction}
+          extra={onLead && <button onClick={onLead}>Để lại SĐT để được tư vấn</button>}
+        />
+      )}
+      <div className="tour-mode" role="group" aria-label="Cách xem">
+        <button className={mode === 'film' ? 'on' : ''} aria-pressed={mode === 'film'} onClick={() => setMode('film')}>Phim</button>
+        <button className={mode === 'steps' ? 'on' : ''} aria-pressed={mode === 'steps'} onClick={() => setMode('steps')}>Từng cảnh</button>
+      </div>
       {/* BR-T4: tour có clip AI phải ghi rõ */}
       {hasClipAi && <p className="v-tour-note">Chuyển cảnh minh hoạ do AI dựng</p>}
     </div>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cloneDocument, emptyDocument, floorFromRects, floorGrossArea, formatArea, HouseDocumentSchema,
   normalizePhoneVN, planSvg, roomArea, stripUnderlay, submitChecks, wallSegments, budgetForFloor,
-  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms, hasModel3d, hasTour,
+  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms, hasModel3d, hasTour, formatPriceVnd, sceneChapters, guessChapter,
 } from '../src/index.ts'
 import type { HouseDocument, ModelReport } from '../src/index.ts'
 
@@ -248,5 +248,21 @@ describe('tour ảnh thật (item 02)', () => {
     expect(c.tour!.scenes[0].id).not.toBe('scn_1')
     expect(c.tour!.scenes[0].floorId).toBe(c.floors[0].id)
     expect(c.tour!.scenes[0].roomId).toBe(c.floors[0].rooms[0].id)
+  })
+})
+
+describe('CR-3 — giá, chương', () => {
+  it('giá kiểu Việt (BR-T6)', () => {
+    expect(formatPriceVnd(12_500_000_000)).toBe('12,5 tỷ ₫')
+    expect(formatPriceVnd(850_000_000)).toBe('850 triệu ₫')
+    expect(formatPriceVnd(3_250_000_000)).toBe('3,25 tỷ ₫')
+    expect(formatPriceVnd(null)).toBeNull()
+  })
+  it('chương theo cảnh trước, cảnh 1 mặc định Ngoài nhà (BR-T8); gợi ý từ tên', () => {
+    expect(sceneChapters([{}, { chapter: 'interior' }, {}, { chapter: 'outdoor' }, {}])).toEqual(['exterior', 'interior', 'interior', 'outdoor', 'outdoor'])
+    expect(guessChapter('Hồ bơi lúc chạng vạng')).toBe('outdoor')
+    expect(guessChapter('Mặt tiền')).toBe('exterior')
+    expect(guessChapter('Phòng khách')).toBe('interior')
+    expect(guessChapter('Cảnh 7')).toBeUndefined()
   })
 })
