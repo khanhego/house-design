@@ -52,8 +52,8 @@ Task BE nào các lát sau mới cần (auth, workflow API) thì đặt ở lát
 | T-21 | A3 tab Đồ, Điểm nhìn & ảnh, thanh kiểm | fe | FR-04.05–04.07, 05.02–05.04 | 02b F13 | T-20, T-17 | 1,5 | ✅ |
 | **Lát 3 — Duyệt & phát hành** |||||||
 | T-22 | Workflow API + submissions + preview + E3/E4 | be | API-39, 50…55, FR-08.* | 02a B8 (route) | T-12, T-19 | 1 | ✅ |
-| T-23 | A5 phiên bản & phát hành | fe | FR-08.01–08.08 | 02b F14 | T-22, T-18 | 1 | ⬜ |
-| T-24 | C2 dự án của tôi + C3 xem trước & duyệt | fe | FR-08.03–05, 09.02–03 | 02b F15 | T-22, T-9, T-14 | 1 | ⬜ |
+| T-23 | A5 phiên bản & phát hành | fe | FR-08.01–08.08 | 02b F14 | T-22, T-18 | 1 | ✅ |
+| T-24 | C2 dự án của tôi + C3 xem trước & duyệt | fe | FR-08.03–05, 09.02–03 | 02b F15 | T-22, T-9, T-14 | 1 | ✅ |
 | **Lát 4 — Lead & thống kê** |||||||
 | T-25 | Leads + chống bot + E5 + CSV | be | API-62, 70…72 | 02a B10 | T-6, T-11 | 1 | ⬜ |
 | T-26 | Events + stats + CSV | be | API-63, 80, 81 | 02a B11 | T-6, T-11 | 0,5 | ⬜ |
