@@ -12,7 +12,7 @@ import { MAT } from './materials.ts'
 import { M } from './units.ts'
 import { Avatar, EYE_HEIGHT, newAvatarState } from './Avatar.tsx'
 import type { AvatarState } from './Avatar.tsx'
-import { blockersOf, nearestFree } from './walk.ts'
+import { blockersOf, furnitureBlockers, nearestFree } from './walk.ts'
 import { stepTowards } from './walk.ts'
 import type { Blocker, P2 } from './walk.ts'
 
@@ -127,9 +127,9 @@ export interface CameraApi {
 }
 
 const FOV_ORBIT = 45
-const FOV_INSIDE = 62
+const FOV_INSIDE = 55
 /** tâm nhìn ở góc người thứ ba: ngang vai (m) */
-const FOLLOW_H = 1.35
+const FOLLOW_H = 1.2
 const WALK_SPEED = 1.4
 const RUN_SPEED = 2.6
 /** rad/s khi xoay bằng phím */
@@ -169,13 +169,13 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   const span = Math.max(M(bounds.w), M(bounds.d), M(bounds.top), 8)
 
   // đặt camera sau lưng người mẫu, nhìn theo hướng người
-  const followBehind = (smooth: boolean, dist = 3.2) => {
+  const followBehind = (smooth: boolean, dist = 3.6) => {
     const c = ref.current
     const a = avatar.current
     if (!c || !a) return
     const t = new THREE.Vector3(a.pos.x, a.pos.y + FOLLOW_H, a.pos.z)
     const back = new THREE.Vector3(-Math.sin(a.heading), 0, -Math.cos(a.heading))
-    const eye = t.clone().addScaledVector(back, dist).add(new THREE.Vector3(0, 0.95, 0))
+    const eye = t.clone().addScaledVector(back, dist).add(new THREE.Vector3(0, 1.3, 0))
     void c.setLookAt(eye.x, eye.y, eye.z, t.x, t.y, t.z, smooth)
   }
 
@@ -450,7 +450,8 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
   const suppressTeleport = useRef(false)
   const rig = useRef<CameraApi | null>(null)
   const insideFloor = floor ?? floors[0] ?? null
-  const blockers = useMemo(() => (insideFloor ? blockersOf(insideFloor) : []), [insideFloor])
+  // tường + đồ nội thất chặn người mẫu
+  const blockers = useMemo(() => (insideFloor ? [...blockersOf(insideFloor), ...furnitureBlockers(insideFloor, data.resolved.libraryItems)] : []), [insideFloor, data.resolved.libraryItems])
 
   const visibleFloors = floor ? floors.filter((f) => f.elevation <= floor.elevation) : floors
   const effWallMode: WallMode = mode === 'inside' || mode === 'facade' || !floor ? 'full' : wallMode

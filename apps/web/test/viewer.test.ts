@@ -56,3 +56,20 @@ describe('đi bộ trong nhà — va chạm tường', async () => {
     expect(isFree([2, 2], blockersOf(f))).toBe(true)
   })
 })
+
+describe('đi bộ trong nhà — va chạm đồ', async () => {
+  const { floorFromRects } = await import('@hd/core')
+  const { furnitureBlockers, stepTowards } = await import('../src/scene/walk.ts')
+  const f = floorFromRects({ name: 'T1', order: 1, elevation: 0, rooms: [{ name: 'A', function: 'dining', rect: [0, 0, 6000, 6000] }] })
+  f.items = [
+    { id: 't', source: { libraryItemId: 'table' }, position: [3000, 3000], elevation: 0, rotation: 0 },
+    { id: 'r', source: { libraryItemId: 'rug' }, position: [3000, 1000], elevation: 0, rotation: 0 },
+  ]
+  const lib = { table: { category: 'table', sizeMm: [1600, 750, 900] as [number, number, number] }, rug: { category: 'rug', sizeMm: [2000, 10, 1400] as [number, number, number] } }
+  it('bàn ăn chặn người, thảm thì đi qua được', () => {
+    const bl = furnitureBlockers(f, lib)
+    expect(bl).toHaveLength(4)
+    expect(stepTowards([1, 3], [5, 3], bl)[0]).toBeLessThan(3 - 0.8)
+    expect(stepTowards([1, 1], [5, 1], bl)[0]).toBeCloseTo(5)
+  })
+})

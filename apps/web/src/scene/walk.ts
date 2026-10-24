@@ -74,3 +74,18 @@ export const nearestFree = (p: P2, blockers: Blocker[]): P2 => {
   }
   return p
 }
+
+/** Đồ nội thất chặn người: khung chữ nhật theo kích thước thư viện, xoay theo góc đặt. Bỏ qua thảm, đồ thấp < 15 cm. */
+export const furnitureBlockers = (floor: Floor, libraryItems: Record<string, { category: string; sizeMm: [number, number, number] }>): Blocker[] =>
+  floor.items.flatMap((it) => {
+    if (!('libraryItemId' in it.source)) return []
+    const lib = libraryItems[it.source.libraryItemId]
+    if (!lib || lib.category === 'rug' || lib.sizeMm[1] < 150 || it.elevation > 1200) return []
+    const [w, , d] = lib.sizeMm
+    const t = (it.rotation * Math.PI) / 180
+    const c = Math.cos(t)
+    const s = Math.sin(t)
+    const corner = (x: number, z: number): P2 => [(it.position[0] + x * c - z * s) / 1000, (it.position[1] + x * s + z * c) / 1000]
+    const pts = [corner(-w / 2, -d / 2), corner(w / 2, -d / 2), corner(w / 2, d / 2), corner(-w / 2, d / 2)]
+    return pts.map((a, i) => ({ a, b: pts[(i + 1) % 4], half: 0 }))
+  })
