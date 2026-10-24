@@ -1,0 +1,6 @@
+-- Chỉ dùng ở dev.
+DROP TABLE IF EXISTS outbox_emails; DROP TABLE IF EXISTS jobs; DROP TABLE IF EXISTS view_events; DROP TABLE IF EXISTS leads;
+DROP TABLE IF EXISTS library_items; DROP TABLE IF EXISTS model_assets; DROP TABLE IF EXISTS reviews; DROP TABLE IF EXISTS submission_files;
+DROP TABLE IF EXISTS submissions; DROP TABLE IF EXISTS versions; DROP TABLE IF EXISTS houses; DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS files; DROP TABLE IF EXISTS tokens; DROP TABLE IF EXISTS sessions; DROP TABLE IF EXISTS users; DROP TABLE IF EXISTS clients;
+DELETE FROM schema_migrations WHERE version = '001';

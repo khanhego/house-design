@@ -244,7 +244,8 @@ const exteriorChains = (floor: Floor, bb: Bbox2) => {
     right: new Set([bb.minY, bb.maxY]),
   }
   const layouts = wallSegments(floor)
-  const sideOf = (L: (typeof layouts)[number]) => {
+  type Side = 'top' | 'bottom' | 'left' | 'right'
+  const sideOf = (L: (typeof layouts)[number]): Side | null => {
     const r = bboxOf(wallRect(L.wall, 0, L.frame.len))
     const horizontal = Math.abs(L.frame.u[1]) < 1e-3
     const vertical = Math.abs(L.frame.u[0]) < 1e-3

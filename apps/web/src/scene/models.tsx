@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { ModelKey } from '../data/types'
+import type { FallbackShape as ModelKey } from '@hd/core'
 
 type V3 = [number, number, number]
 
