@@ -173,7 +173,7 @@ export const planSvg = (floor: Floor, opts: PlanOptions = {}): PlanResult => {
     const c = roomLabelPoint(r.polygon)
     const b = bboxOf(r.polygon)
     const lines = [
-      `<tspan x="${f(c[0])}" dy="0" font-weight="600" font-size="${f(fs.room)}">${escapeXml(r.name)}</tspan>`,
+      `<tspan x="${f(c[0])}" dy="0" font-weight="bold" font-size="${f(fs.room)}">${escapeXml(r.name)}</tspan>`,
       `<tspan x="${f(c[0])}" dy="${f(fs.room * 1.15)}" font-size="${f(fs.small)}">${escapeXml(formatArea(roomArea(r.polygon)))}</tspan>`,
     ]
     if (showDims)
