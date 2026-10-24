@@ -13,12 +13,18 @@ import { AppError } from './lib/errors.ts'
 import { localDiskStorage } from './storage/storage.ts'
 import { registerWeb } from './routes/web.ts'
 import { registerRoutes } from './routes/index.ts'
+import { makeTransport } from './email/transport.ts'
+import type { Transport } from './email/transport.ts'
+import { startRunner } from './jobs/runner.ts'
+import type { Runner } from './jobs/runner.ts'
+import { jobHandlers } from './jobs/handlers.ts'
 
-export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
+import { MAX_UPLOAD_BYTES } from './lib/limits.ts'
 
 export interface App {
   app: FastifyInstance
   ctx: Ctx
+  transport: Transport
   close: () => Promise<void>
 }
 
@@ -89,10 +95,16 @@ export const buildApp = async (cfg: Config, opts: { dbFile?: string; logger?: bo
   await registerRoutes(app, ctx)
   await registerWeb(app, ctx)
 
+  const transport = makeTransport(cfg)
+  let runner: Runner | null = null
+  if (cfg.runJobs) runner = startRunner(ctx, transport, jobHandlers(ctx))
+
   return {
     app,
     ctx,
+    transport,
     close: async () => {
+      runner?.stop()
       await app.close()
       db.close()
     },
