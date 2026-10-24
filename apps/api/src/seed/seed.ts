@@ -118,14 +118,50 @@ export const seedDemo = async (ctx: Ctx, opts: { adminEmail: string; adminPasswo
   return { adminId: admin.id, clientId: client.id, projectId: project.id, projectSlug: slug, houseIds, approverEmail: 'duyet@sunrise.local' }
 }
 
-/* CLI: `npm run seed` */
+/**
+ * Cập nhật bố cục nhà mẫu đã phát hành theo `demoHouses` hiện tại (phiên bản mới → gửi → duyệt → phát hành).
+ * Giữ ảnh đại diện; bỏ điểm nhìn cũ (id tầng đổi). Bỏ qua mẫu nhà đang có phiên bản mở.
+ */
+export const refreshDemo = (ctx: Ctx, slug = 'sunrise-garden') => {
+  const project = ctx.repos.projects.bySlug(slug)
+  if (!project) throw new Error(`Chưa có dự án mẫu /v/${slug} — chạy seed trước`)
+  const admin = ctx.repos.users.list().find((u) => u.role === 'admin' && u.status === 'active')
+  if (!admin) throw new Error('Không có quản trị viên')
+  const actor: AuthUser = { id: admin.id, name: admin.name, email: admin.email, role: 'admin', clientId: null }
+  const libIds: Record<string, string> = {}
+  const sizes: Record<string, [number, number, number]> = {}
+  for (const { key, ...item } of LIBRARY) {
+    const it = ctx.repos.library.list({ q: item.name }).find((i) => i.name === item.name) ?? ctx.repos.library.create(item)
+    libIds[key] = it.id
+    sizes[key] = it.sizeMm
+  }
+  const done: string[] = []
+  for (const d of demoHouses(libIds, sizes)) {
+    const house = ctx.repos.houses.bySlug(project.id, d.slug)
+    if (!house || ctx.repos.versions.open(house.id)) continue
+    const latest = ctx.repos.versions.latest(house.id)!
+    const cover = (JSON.parse(latest.document) as HouseDocument).coverFileId
+    const v = ctx.repos.versions.create(house.id, latest.number + 1, { ...d.document, coverFileId: cover })
+    submit(ctx, v.id, actor)
+    review(ctx, v.id, actor, { decision: 'approved', note: 'Cập nhật bố cục mẫu: thêm cửa, không gian mở, cầu thang' }, { evidenceFileId: null })
+    publish(ctx, v.id, actor)
+    done.push(`${d.slug} → phiên bản ${v.number}`)
+  }
+  return done
+}
+
+/* CLI: `npm run seed` · `npm run seed -- --refresh-demo` */
 if (import.meta.filename === process.argv[1]) {
   const { loadConfig } = await import('../config.ts')
   const { buildApp } = await import('../server.ts')
   const cfg = loadConfig(process.env, { runJobs: false })
   if (!cfg.seedAdminEmail || !cfg.seedAdminPassword) throw new Error('Cần SEED_ADMIN_EMAIL và SEED_ADMIN_PASSWORD')
   const { ctx, close } = await buildApp(cfg, { logger: false })
-  const r = await seedDemo(ctx, { adminEmail: cfg.seedAdminEmail, adminPassword: cfg.seedAdminPassword })
-  console.log(`Đã seed dự án /v/${r.projectSlug} (${r.houseIds.length} mẫu nhà). Đăng nhập studio: ${cfg.seedAdminEmail}`)
+  if (process.argv.includes('--refresh-demo')) {
+    console.log('Đã cập nhật nhà mẫu:', refreshDemo(ctx).join(' · ') || 'không có (đang có phiên bản mở?)')
+  } else {
+    const r = await seedDemo(ctx, { adminEmail: cfg.seedAdminEmail, adminPassword: cfg.seedAdminPassword })
+    console.log(`Đã seed dự án /v/${r.projectSlug} (${r.houseIds.length} mẫu nhà). Đăng nhập studio: ${cfg.seedAdminEmail}`)
+  }
   await close()
 }

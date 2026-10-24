@@ -290,3 +290,8 @@
 }
 .zoom-btns { display: inline-flex; gap: 2px; }
 .zoom-btns .icon-btn { min-width: 34px; font-size: 16px; line-height: 1; }
+.zoom-float { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: 120px; z-index: 12; display: grid; gap: 8px; }
+.zoom-btn { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: 24px; line-height: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.zoom-btn:active { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+@media (max-width: 640px) { .zoom-float { bottom: 180px; } .zoom-btn { width: 44px; height: 44px; } }
+.stair-prompt { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); z-index: 13; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 8px 6px 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16); font-size: 14px; font-weight: 600; }

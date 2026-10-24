@@ -37,6 +37,8 @@ export interface RectFloorSpec {
   stairs?: { rect: [number, number, number, number]; upDirection: number; toFloorId?: string }[]
   exteriorThickness?: number
   interiorThickness?: number
+  /** cặp phòng thông nhau (không kẻ tường ở cạnh chung) — không gian mở: khách–bếp, sảnh–cầu thang… */
+  open?: [string, string][]
 }
 
 type Interval = [number, number]
@@ -80,11 +82,33 @@ export const floorFromRects = (spec: RectFloorSpec): Floor => {
     addLine('y', x + w, y, y + d)
   }
 
+  // bỏ tường ở cạnh chung của các cặp phòng thông nhau
+  const cut = new Map<string, Interval[]>()
+  for (const [na, nb] of spec.open ?? []) {
+    const A = spec.rooms.find((r) => r.name === na)?.rect
+    const B = spec.rooms.find((r) => r.name === nb)?.rect
+    if (!A || !B) throw new Error(`Không tìm thấy phòng để thông: ${na} – ${nb}`)
+    const add = (axis: 'x' | 'y', at: number, a: number, b: number) => {
+      if (b - a < 1) return
+      const k = `${axis}:${at}`
+      cut.set(k, [...(cut.get(k) ?? []), [a, b]])
+    }
+    for (const [P, Q] of [[A, B], [B, A]]) {
+      if (P[0] + P[2] === Q[0]) add('y', Q[0], Math.max(P[1], Q[1]), Math.min(P[1] + P[3], Q[1] + Q[3]))
+      if (P[1] + P[3] === Q[1]) add('x', Q[1], Math.max(P[0], Q[0]), Math.min(P[0] + P[2], Q[0] + Q[2]))
+    }
+  }
+  const subtract = (ivs: Interval[], cuts: Interval[]) =>
+    cuts.reduce<Interval[]>(
+      (acc, [ca, cb]) => acc.flatMap(([a, b]) => [[a, Math.min(b, ca)], [Math.max(a, cb), b]] as Interval[]).filter(([a, b]) => b - a > 50),
+      ivs,
+    )
+
   const walls: Wall[] = []
   const wallLines: { wall: Wall; axis: 'x' | 'y'; at: number; from: number; to: number }[] = []
   for (const { axis, at, ivs } of lines.values()) {
     const exterior = axis === 'x' ? at === minY || at === maxY : at === minX || at === maxX
-    for (const [from, to] of union(ivs)) {
+    for (const [from, to] of subtract(union(ivs), cut.get(`${axis}:${at}`) ?? [])) {
       const wall: Wall = {
         id: newId('wal'),
         a: axis === 'x' ? [from, at] : [at, from],

@@ -1,4 +1,5 @@
 import { bboxOf, centroid, isSimplePolygon, pointInPolygon, polygonArea, wallsOutline } from './geometry.ts'
+import { unreachableRooms } from './reach.ts'
 import { newId } from './ids.ts'
 import { MAX_FLOORS } from './schema.ts'
 import type { Floor, HouseDocument, ModelReport, PlacedItem, Point } from './schema.ts'
@@ -148,7 +149,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
 export interface Check {
   level: 'block' | 'warn'
   code:
-    | 'NO_FLOORS' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'MODEL_PROCESSING'
+    | 'NO_FLOORS' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'MODEL_PROCESSING'
     | 'MODEL_FAILED' | 'MODEL_NODE_MISSING' | 'BUDGET_BLOCK' | 'BUDGET_WARN' | 'NO_COVER'
     | 'FLOOR_NO_OUTLINE' | 'NO_DEFAULT_VIEWPOINT'
   message: string
@@ -180,6 +181,12 @@ export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => 
       if (!isSimplePolygon(r.polygon))
         out.push({ level: 'block', code: 'ROOM_NOT_CLOSED', floorId: f.id, objectId: r.id, message: `${f.name}: phòng "${r.name}" chưa khép kín` })
     }
+    // lối đi: phòng không có cửa / lối vào (lỗi dựng thường gặp khi kẻ thừa tường ngăn)
+    if (f.calibrated)
+      for (const id of unreachableRooms(doc, f)) {
+        const r = f.rooms.find((x) => x.id === id)!
+        out.push({ level: 'warn', code: 'ROOM_UNREACHABLE', floorId: f.id, objectId: id, message: `${f.name}: không đi vào được "${r.name}" — thiếu cửa đi hoặc lối đi hẹp hơn 0,4 m` })
+      }
     if (!f.outline || f.outline.length < 3)
       out.push({ level: 'warn', code: 'FLOOR_NO_OUTLINE', floorId: f.id, message: `${f.name} chưa có đường bao, diện tích sàn tính theo hình chữ nhật bao` })
     for (const it of f.items) {

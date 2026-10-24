@@ -12,7 +12,7 @@ import { MAT } from './materials.ts'
 import { M } from './units.ts'
 import { Avatar, EYE_HEIGHT, newAvatarState } from './Avatar.tsx'
 import type { AvatarState } from './Avatar.tsx'
-import { bestSpot, blockersOf, furnitureBlockers, openHeading } from './walk.ts'
+import { bestSpot, blockersOf, furnitureBlockers, nearestFreeIn, openHeading, stairEnd } from './walk.ts'
 import { stepTowards } from './walk.ts'
 import type { Blocker, P2 } from './walk.ts'
 
@@ -45,6 +45,8 @@ export interface HouseSceneProps {
   onReady?: () => void
   /** điều khiển camera từ nút trên giao diện */
   cameraApi?: React.RefObject<CameraApi | null>
+  /** người mẫu bước lên / rời cầu thang (chế độ Đứng trong phòng) */
+  onStair?: (o: StairOption) => void
 }
 
 export interface HouseBounds {
@@ -120,11 +122,22 @@ const Lights = ({ bounds, night, floor, lowPower }: { bounds: HouseBounds; night
 
 /** Điều khiển camera từ giao diện (nút ＋ / − / về toàn cảnh). */
 export interface CameraApi {
+  /** 1 = lại gần, -1 = lùi xa — một nấc */
   zoom: (dir: 1 | -1) => void
+  /** giữ nút: zoom liên tục theo chiều `dir`; 0 = dừng */
+  hold: (dir: 1 | -1 | 0) => void
   reset: () => void
   /** nhấp đúp sàn: bay lại gần điểm đó, giữ hướng nhìn */
   focus?: (p: THREE.Vector3) => void
+  /** lần chuyển tầng kế tiếp: đặt người mẫu gần điểm này (m) — đi cầu thang */
+  arriveAt?: (p: P2) => void
 }
+
+/** Người mẫu đang đứng trên cầu thang: có thể lên / xuống tầng nào. */
+export type StairOption = {
+  up?: { floorId: string; name: string; arrive: P2 }
+  down?: { floorId: string; name: string; arrive: P2 }
+} | null
 
 const FOV_ORBIT = 45
 const FOV_INSIDE = 55
@@ -140,7 +153,7 @@ const isTyping = (e: KeyboardEvent) => {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
 }
 
-const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkGoal, avatar, blockers, api, rig, suppressTeleport, onEnterRoom }: {
+const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkGoal, avatar, blockers, api, rig, suppressTeleport, onEnterRoom, onStair }: {
   doc: HouseDocument
   bounds: HouseBounds
   floor: Floor | null
@@ -155,6 +168,7 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   rig: React.RefObject<CameraApi | null>
   suppressTeleport: React.RefObject<boolean>
   onEnterRoom: (floorId: string, roomId: string) => void
+  onStair?: (o: StairOption) => void
 }) => {
   const ref = useRef<CameraControls>(null)
   const scene = useThree((s) => s.scene)
@@ -165,6 +179,9 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   const keys = useRef(new Set<string>())
   const [resetTick, setResetTick] = useState(0)
   const roomCheck = useRef(0)
+  const holdDir = useRef<1 | -1 | 0>(0)
+  const arrive = useRef<P2 | null>(null)
+  const lastStair = useRef('')
   const insideFloor = floor ?? sortedFloors(doc)[0] ?? null
   const span = Math.max(M(bounds.w), M(bounds.d), M(bounds.top), 8)
 
@@ -197,9 +214,12 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       c.maxPolarAngle = Math.PI * 0.62
       c.azimuthRotateSpeed = 0.55
       c.polarRotateSpeed = 0.45
-      c.dollySpeed = 0.5
+      c.dollySpeed = 1
       c.truckSpeed = 0
       c.dollyToCursor = false
+      c.infinityDolly = false
+      c.boundaryEnclosesCamera = false
+      c.setBoundary(undefined)
       // camera không lọt ra sau tường
       const walls: THREE.Object3D[] = []
       scene.traverse((o) => {
@@ -209,6 +229,18 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       // đi bộ sang phòng khác thì không dịch chuyển người
       if (suppressTeleport.current) {
         suppressTeleport.current = false
+        return
+      }
+      // vừa đi cầu thang sang tầng này: đứng ở đầu/chân cầu thang, trong một phòng
+      if (arrive.current) {
+        const areas = [...f.rooms.map((r) => r.polygon), ...f.areas.map((x) => x.polygon)].map((poly) => poly.map(([px, py]) => [M(px), M(py)] as P2))
+        const [x, z] = nearestFreeIn(arrive.current, blockers, areas)
+        arrive.current = null
+        a.pos.set(x, M(f.elevation), z)
+        a.heading = openHeading([x, z], blockers)
+        a.speed = 0
+        walkGoal.current = null
+        followBehind(smooth)
         return
       }
       const r = room ?? f.rooms[0]
@@ -225,16 +257,24 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
     }
 
     c.colliderMeshes = []
-    c.minDistance = 0.6
+    c.minDistance = 0.8
     c.maxDistance = Math.max(20, span * 2.6)
     c.minPolarAngle = 0
     c.maxPolarAngle = Math.PI / 2.1
     c.azimuthRotateSpeed = 1
     c.polarRotateSpeed = 1
-    c.dollySpeed = 0.6
+    c.dollySpeed = 1.4
     c.truckSpeed = 1
-    // cuộn chuột phóng to đúng chỗ con trỏ đang chỉ
+    // cuộn chuột phóng to đúng chỗ con trỏ đang chỉ; chạm khoảng cách tối thiểu thì đi tiếp tới trước (không bị kẹt)
     c.dollyToCursor = true
+    c.infinityDolly = true
+    // giữ camera trong khối bao quanh nhà, không chui xuống dưới mặt đất khi cuộn liên tục
+    const pad = span * 1.5
+    c.boundaryEnclosesCamera = true
+    c.setBoundary(new THREE.Box3(
+      new THREE.Vector3(M(bounds.minX) - pad, 0.25, M(bounds.minY) - pad),
+      new THREE.Vector3(M(bounds.maxX) + pad, M(bounds.top) + span * 2.6, M(bounds.maxY) + pad),
+    ))
 
     if (mode === 'facade') {
       const s = Math.max(M(bounds.w), M(bounds.top))
@@ -268,14 +308,21 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, bounds, floor, roomId, mode, k, resetTick, blockers])
 
+  // gỡ lỗi (?debug3d=1): cho kiểm thử tự động đọc khoảng cách / vị trí camera
+  useEffect(() => {
+    if (new URLSearchParams(location.search).has('debug3d')) (window as unknown as { __hdControls?: CameraControls | null }).__hdControls = ref.current
+  }, [])
+
   // nút ＋ / − / về toàn cảnh
   useEffect(() => {
     const v: CameraApi = {
       zoom: (dir) => {
         const c = ref.current
         if (!c) return
-        void c.dolly(dir * Math.max(0.4, c.distance * 0.45), true)
+        void c.dolly(dir * Math.max(0.5, c.distance * 0.4), true)
       },
+      hold: (dir) => void (holdDir.current = dir),
+      arriveAt: (p) => void (arrive.current = p),
       reset: () => (mode === 'inside' ? followBehind(true) : setResetTick((t) => t + 1)),
       focus: (p) => {
         const c = ref.current
@@ -320,6 +367,8 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
     const c = ref.current
     if (!c) return
     c.getTarget(target.current)
+    // giữ nút ＋/−: zoom liên tục, nhanh dần theo khoảng cách (≈ 1,6 lần mỗi giây)
+    if (holdDir.current) void c.dolly(holdDir.current * Math.max(0.6, c.distance) * 1.3 * dt, false)
     // góc nhìn rộng hơn khi ở trong phòng để phòng không bị "chật"
     const fov = mode === 'inside' ? FOV_INSIDE : FOV_ORBIT
     if (Math.abs(camera.fov - fov) > 0.05) {
@@ -374,7 +423,8 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       }
       a.speed += ((dt > 0 ? moved / dt : 0) - a.speed) * Math.min(1, dt * 8)
       // sát quá thì thành góc nhìn của chính người mẫu, tâm nhìn lên tầm mắt
-      a.visible = c.distance > 0.6
+      // camera bị tường ép sát lưng (hành lang hẹp) → tạm ẩn người mẫu thay vì che kín màn hình
+      a.visible = c.distance > 0.6 && camera.position.distanceTo(target.current) > 1.0
       const wantH = a.pos.y + (c.distance < 0.8 ? EYE_HEIGHT : FOLLOW_H)
       if (!moved && Math.abs(target.current.y - wantH) > 0.01) void c.moveTo(a.pos.x, wantH, a.pos.z, true)
       // đi bộ sang phòng khác → chọn phòng đó (không dịch chuyển)
@@ -387,12 +437,28 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
           suppressTeleport.current = true
           onEnterRoom(insideFloor.id, r.id)
         }
+        // trên cầu thang → gợi ý lên / xuống tầng
+        const up = insideFloor.stairs.find((st) => st.toFloorId && pointInPolygon(here, st.polygon))
+        const down = doc.floors.flatMap((fl) => fl.stairs.filter((st) => st.toFloorId === insideFloor.id).map((st) => ({ fl, st }))).find((x) => pointInPolygon(here, x.st.polygon))
+        const key = `${up?.toFloorId ?? ''}|${down?.fl.id ?? ''}`
+        if (key !== lastStair.current) {
+          lastStair.current = key
+          const name = (id: string) => doc.floors.find((x) => x.id === id)?.name ?? ''
+          onStair?.(
+            key === '|'
+              ? null
+              : {
+                  up: up?.toFloorId ? { floorId: up.toFloorId, name: name(up.toFloorId), arrive: stairEnd(up.polygon, up.upDirection, 'top') } : undefined,
+                  down: down ? { floorId: down.fl.id, name: down.fl.name, arrive: stairEnd(down.st.polygon, down.st.upDirection, 'bottom') } : undefined,
+                },
+          )
+        }
       }
     }
     if (autoRotate && mode === 'orbit' && !c.active) c.azimuthAngle += dt * 0.12
   })
 
-  return <CameraControls ref={ref} makeDefault smoothTime={0.45} draggingSmoothTime={0.12} />
+  return <CameraControls ref={ref} makeDefault smoothTime={0.22} draggingSmoothTime={0.08} />
 }
 
 const Ready = ({ onReady }: { onReady?: () => void }) => {
@@ -496,6 +562,7 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
         doc={doc} bounds={bounds} floor={floor} roomId={roomId} mode={mode} autoRotate={!!p.autoRotate} target={target}
         walkGoal={walkGoal} avatar={avatar} blockers={blockers} api={p.cameraApi} rig={rig} suppressTeleport={suppressTeleport}
         onEnterRoom={(fid, rid) => p.onSelectRoom(fid, rid)}
+        onStair={p.onStair}
       />
       {mode === 'inside' && <Avatar state={avatar} />}
 

@@ -4,7 +4,7 @@ import { useProgress } from '@react-three/drei'
 import { assignItemsToRooms, formatArea, roomArea, sortedFloors } from '@hd/core'
 import type { Floor, PublicHousePayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
-import type { CameraApi, ViewMode, WallMode } from '../scene/HouseScene.tsx'
+import type { CameraApi, StairOption, ViewMode, WallMode } from '../scene/HouseScene.tsx'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { ContactButtons, ContactMenu } from './Contact.tsx'
 import { ItemPanel } from './ItemPanel.tsx'
@@ -60,6 +60,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const onLead = onLeadCtx ? () => onLeadCtx({ floorId: floorId !== 'all' ? floorId : undefined, roomId: roomId ?? undefined }) : undefined
   const [mode, setMode] = useState<ViewMode>('orbit')
   const cameraApi = useRef<CameraApi | null>(null)
+  const [stairOpt, setStairOpt] = useState<StairOption>(null)
   const [wallMode, setWallMode] = useState<WallMode>('auto')
   const [night, setNight] = useState(false)
   const [tab, setTab] = useState<'3d' | 'plan'>(q.get('tab') === 'plan' ? 'plan' : '3d')
@@ -247,6 +248,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   onSelectRoom={chooseRoom}
                   onReady={() => (setReady(true), events.ready?.())}
                   cameraApi={cameraApi}
+                  onStair={setStairOpt}
                 />
               </Suspense>
             </div>
@@ -317,6 +319,32 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
               )}
             </aside>
 
+            {/* đứng trên cầu thang: lên / xuống tầng */}
+            {mode === 'inside' && stairOpt && (
+              <div className="stair-prompt" role="group" aria-label="Cầu thang">
+                <span>Cầu thang</span>
+                {(['up', 'down'] as const).map((k) => {
+                  const o = stairOpt[k]
+                  if (!o) return null
+                  return (
+                    <button key={k} className="btn primary small" onClick={() => {
+                      cameraApi.current?.arriveAt?.(o.arrive)
+                      setStairOpt(null)
+                      setFloorId(o.floorId)
+                      setRoomId(null)
+                      events.floor?.(o.floorId)
+                    }}>{k === 'up' ? '↑ Lên' : '↓ Xuống'} {o.name}</button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* nút zoom cứng: bấm = một nấc, giữ = zoom liên tục */}
+            <div className="zoom-float" role="group" aria-label="Thu phóng">
+              <ZoomButton dir={1} api={cameraApi} label="Phóng to">＋</ZoomButton>
+              <ZoomButton dir={-1} api={cameraApi} label="Thu nhỏ">−</ZoomButton>
+            </div>
+
             <div className="mode-bar">
               <div className="seg">
                 <button className={mode === 'orbit' ? 'on' : ''} onClick={() => setMode('orbit')}>Toàn cảnh</button>
@@ -336,11 +364,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   {night ? 'Đêm' : 'Ngày'}
                 </button>
               )}
-              <div className="zoom-btns" role="group" aria-label="Thu phóng">
-                <button className="icon-btn" onClick={() => cameraApi.current?.zoom(-1)} title="Phóng to" aria-label="Phóng to">＋</button>
-                <button className="icon-btn" onClick={() => cameraApi.current?.zoom(1)} title="Thu nhỏ" aria-label="Thu nhỏ">−</button>
-                <button className="icon-btn" onClick={() => cameraApi.current?.reset()} title={mode === 'inside' ? 'Về sau lưng người mẫu' : 'Về góc nhìn ban đầu'} aria-label="Về góc nhìn ban đầu">⌂</button>
-              </div>
+              <button className="icon-btn" onClick={() => cameraApi.current?.reset()} title={mode === 'inside' ? 'Về sau lưng người mẫu' : 'Về góc nhìn ban đầu'} aria-label="Về góc nhìn ban đầu">⌂</button>
               <button className="icon-btn hide-sm" onClick={fullscreen} title="Toàn màn hình">⤢</button>
               <button className="icon-btn" onClick={share} title="Chia sẻ" aria-label="Chia sẻ">↗<span className="hide-sm"> Chia sẻ</span></button>
             </div>
@@ -400,6 +424,34 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
       </div>
       <Disclaimer text={data.project.disclaimer} branding={data.branding} />
     </div>
+  )
+}
+
+/** Nút zoom: bấm một lần = một nấc; giữ quá 250 ms = zoom liên tục tới khi thả. */
+const ZoomButton = ({ dir, api, label, children }: { dir: 1 | -1; api: React.RefObject<CameraApi | null>; label: string; children: React.ReactNode }) => {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stop = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    api.current?.hold(0)
+  }
+  return (
+    <button
+      className="zoom-btn"
+      aria-label={label}
+      title={`${label} (giữ để ${dir > 0 ? 'phóng' : 'thu'} liên tục)`}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        api.current?.zoom(dir)
+        timer.current = setTimeout(() => api.current?.hold(dir), 250)
+      }}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onLostPointerCapture={stop}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {children}
+    </button>
   )
 }
 

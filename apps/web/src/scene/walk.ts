@@ -144,3 +144,31 @@ export const openHeading = (p: P2, blockers: Blocker[], reach = 5): number => {
   }
   return best
 }
+
+/** Chỗ đứng trống gần `p` nhất nằm trong một trong các vùng `areas` (phòng / sân) — khi chuyển tầng qua cầu thang. */
+export const nearestFreeIn = (p: P2, blockers: Blocker[], areas: P2[][]): P2 => {
+  const ok = (q: P2) => isFree(q, blockers) && areas.some((a) => inPoly(q, a))
+  if (ok(p)) return p
+  for (let r = 0.1; r < 6; r += 0.1) {
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2
+      const q: P2 = [p[0] + Math.cos(a) * r, p[1] + Math.sin(a) * r]
+      if (ok(q)) return q
+    }
+  }
+  return nearestFree(p, blockers)
+}
+
+/** Điểm đứng ở đầu trên (`top`) hoặc chân (`bottom`) cầu thang, cách mép 0,6 m (m). */
+export const stairEnd = (polygon: [number, number][], upDirection: number, end: 'top' | 'bottom'): P2 => {
+  const xs = polygon.map((p) => p[0])
+  const ys = polygon.map((p) => p[1])
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+  const a = (upDirection * Math.PI) / 180
+  const dx = Math.cos(a)
+  const dy = Math.sin(a)
+  const half = Math.abs(dx) > Math.abs(dy) ? (Math.max(...xs) - Math.min(...xs)) / 2 : (Math.max(...ys) - Math.min(...ys)) / 2
+  const k = (end === 'top' ? 1 : -1) * (half + 600)
+  return [(cx + dx * k) / 1000, (cy + dy * k) / 1000]
+}

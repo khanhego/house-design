@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cloneDocument, emptyDocument, floorFromRects, floorGrossArea, formatArea, HouseDocumentSchema,
   normalizePhoneVN, planSvg, roomArea, stripUnderlay, submitChecks, wallSegments, budgetForFloor,
-  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon,
+  levelOf, BUDGET, duplicateFloor, assignItemsToRooms, isSimplePolygon, unreachableRooms,
 } from '../src/index.ts'
 import type { HouseDocument, ModelReport } from '../src/index.ts'
 
@@ -191,5 +191,31 @@ describe('planSvg', () => {
     expect(svg).not.toContain('<script>')
     expect(svg).not.toContain('" onload="')
     expect(svg).toContain('&lt;script&gt;')
+  })
+})
+
+describe('lối đi — ROOM_UNREACHABLE', () => {
+  const mk = (withDoor: boolean, open = false) =>
+    floorFromRects({
+      name: 'T1', order: 1, elevation: 0,
+      rooms: [
+        { name: 'Khách', function: 'living', rect: [0, 0, 5000, 4000] },
+        { name: 'Ngủ', function: 'bedroom', rect: [5000, 0, 4000, 4000] },
+      ],
+      openings: [
+        { kind: 'door', axis: 'x', at: 0, from: 1500, to: 2500 },
+        ...(withDoor ? [{ kind: 'door' as const, axis: 'y' as const, at: 5000, from: 1500, to: 2400 }] : []),
+      ],
+      open: open ? [['Khách', 'Ngủ']] : undefined,
+    })
+  const docOf = (f: ReturnType<typeof mk>) => ({ ...emptyDocument(), floors: [f] })
+  it('phòng không có cửa → cảnh báo; có cửa hoặc thông nhau → không', () => {
+    const f1 = mk(false)
+    expect(unreachableRooms(docOf(f1), f1).map((id) => f1.rooms.find((r) => r.id === id)!.name)).toEqual(['Ngủ'])
+    const f2 = mk(true)
+    expect(unreachableRooms(docOf(f2), f2)).toEqual([])
+    const f3 = mk(false, true)
+    expect(f3.walls.some((w) => w.a[0] === 5000 && w.b[0] === 5000)).toBe(false)
+    expect(unreachableRooms(docOf(f3), f3)).toEqual([])
   })
 })
