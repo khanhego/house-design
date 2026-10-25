@@ -174,7 +174,7 @@ Người mẫu ở chế độ "Đứng trong phòng" giờ đi như nhân vật
 | Giữ W / ↑ đi tới, A / D xoay, Shift chạy | Bộ điều khiển nhân vật (Rapier) đẩy thân hình viên thuốc 1,7 m: trượt dọc tường, lướt qua khung cửa (có hỗ trợ kéo vào giữa cửa), có trọng lực | `apps/web/src/scene/physics/walker.ts` |
 | Đi tới cầu thang và cứ giữ W | Leo từng vế (dốc liền), qua chiếu nghỉ, lên tới sàn tầng trên thì tự chọn tầng đó | `walkGeometry.ts` (dốc + chiếu nghỉ), `HouseScene.tsx` (chọn tầng theo độ cao) |
 | Bấm vào sàn bất kỳ (kể cả phòng khác) | Tìm đường trên navmesh (Recast/Detour) qua cửa, né đồ, lên xuống cầu thang | `walker.pathTo` |
-| Kéo xoay camera trong phòng hẹp | Camera thu ngắn trước tường (cần lò xo), không lọt ra sau tường | `walker.springArm` |
+| Kéo xoay camera trong phòng hẹp | Camera lùi sau lưng 2,8 m nhưng dừng trước tường / kính / trần (cần lò xo; không tính đồ nội thất và lan can vô hình); thu vào ngay, bung ra từ từ. Không lùi nổi 1,1 m (WC, quay lưng vào tường gần) thì chuyển hẳn sang **góc nhìn thứ nhất** ở tầm mắt, góc nhìn 70°, nhìn về phía trước; lùi được > 1,5 m thì trở lại góc nhìn thứ ba | `walker.springArm`, `HouseScene.tsx` (`fpOn`) |
 
 **Vì sao không còn đi ra ngoài khoảng không:** va chạm lấy từ sàn thật của từng tầng (phòng, ban công, sân thượng, đường bao) — chỗ không có sàn thì không đứng được; mép sàn tầng trên, miệng lỗ thang (trừ chỗ bước ra khỏi thang), hồ bơi, ranh khu đất có lan can vô hình.
 

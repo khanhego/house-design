@@ -142,9 +142,11 @@ export type StairOption = {
 } | null
 
 const FOV_ORBIT = 45
-const FOV_INSIDE = 55
+const FOV_INSIDE = 60
 /** tâm nhìn ở góc người thứ ba: ngang vai (m) */
 const FOLLOW_H = 1.2
+/** khoảng lùi mặc định của camera sau lưng người mẫu (m) — vừa phòng ở Việt Nam (3–5 m) */
+const FOLLOW_DIST = 2.8
 const WALK_SPEED = 1.4
 const RUN_SPEED = 2.6
 /** rad/s khi xoay bằng phím */
@@ -191,19 +193,25 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
   const arrive = useRef<P2 | null>(null)
   const lastStair = useRef('')
   const stall = useRef(0)
+  /** độ dài cần lò xo camera đang dùng (m) — thu vào ngay, bung ra từ từ */
+  const arm = useRef(0)
+  /** 0 = góc nhìn thứ ba, 1 = góc nhìn thứ nhất (khi camera bị ép sát) */
+  const fpBlend = useRef(0)
+  const fpOn = useRef(false)
+  const dbg = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug3d')
   /** bộ vật lý đã nhận vị trí hiện tại của người mẫu chưa */
   const synced = useRef<Walker | null>(null)
   const insideFloor = floor ?? sortedFloors(doc)[0] ?? null
   const span = Math.max(M(bounds.w), M(bounds.d), M(bounds.top), 8)
 
   // đặt camera sau lưng người mẫu, nhìn theo hướng người
-  const followBehind = (smooth: boolean, dist = 3.6) => {
+  const followBehind = (smooth: boolean, dist = FOLLOW_DIST) => {
     const c = ref.current
     const a = avatar.current
     if (!c || !a) return
     const t = new THREE.Vector3(a.pos.x, a.pos.y + FOLLOW_H, a.pos.z)
     const back = new THREE.Vector3(-Math.sin(a.heading), 0, -Math.cos(a.heading))
-    const eye = t.clone().addScaledVector(back, dist).add(new THREE.Vector3(0, 1.3, 0))
+    const eye = t.clone().addScaledVector(back, dist).add(new THREE.Vector3(0, 1.1, 0))
     void c.setLookAt(eye.x, eye.y, eye.z, t.x, t.y, t.z, smooth)
   }
 
@@ -393,7 +401,7 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
     if (holdDir.current) void c.dolly(holdDir.current * Math.max(0.6, c.distance) * 1.3 * dt, false)
     // góc nhìn rộng hơn khi ở trong phòng để phòng không bị "chật"
     const fov = mode === 'inside' ? FOV_INSIDE : FOV_ORBIT
-    if (Math.abs(camera.fov - fov) > 0.05) {
+    if (!(mode === 'inside' && walker) && Math.abs(camera.fov - fov) > 0.05) {
       camera.fov += (fov - camera.fov) * Math.min(1, dt * 4)
       camera.updateProjectionMatrix()
     }
@@ -486,7 +494,7 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
       a.speed += ((dt > 0 ? moved / dt : 0) - a.speed) * Math.min(1, dt * 8)
       // sát quá thì thành góc nhìn của chính người mẫu, tâm nhìn lên tầm mắt
       // camera bị tường ép sát lưng (hành lang hẹp) → tạm ẩn người mẫu thay vì che kín màn hình
-      a.visible = c.distance > 0.6 && camera.position.distanceTo(target.current) > 1.0
+      a.visible = c.distance > 0.6 && camera.position.distanceTo(target.current) > (walker ? 0.45 : 1.0)
       const wantH = a.pos.y + (c.distance < 0.8 ? EYE_HEIGHT : FOLLOW_H)
       if (!moved && Math.abs(target.current.y - wantH) > 0.01) void c.moveTo(a.pos.x, wantH, a.pos.z, true)
       // đi bộ sang phòng khác → chọn phòng đó (không dịch chuyển)
@@ -527,12 +535,50 @@ const CameraRig = ({ doc, bounds, floor, roomId, mode, autoRotate, target, walkG
         }
       }
     }
-    // cần lò xo: camera dừng trước tường / đồ giữa người và camera — không bao giờ lọt ra sau tường
+    // cần lò xo: camera dừng trước tường / kính / trần — không bao giờ lọt ra sau tường. Thu vào ngay khi bị chặn, bung ra
+    // từ từ (không giật). Bị ép sát (phòng nhỏ, quay lưng vào tường gần) thì chuyển hẳn sang góc nhìn thứ nhất ở tầm mắt,
+    // nhìn về phía trước — không còn cảnh camera dí vào lưng người mẫu làm khung nhìn hẹp
     if (mode === 'inside' && walker) {
+      // camera-controls có lớp tránh va chạm riêng (đặt lại mỗi khi đổi phòng) — tắt, chỉ dùng cần lò xo của bộ vật lý
+      if (c.colliderMeshes.length) c.colliderMeshes = []
       const t = target.current
-      const safe = walker.springArm({ x: t.x, y: t.y, z: t.z }, { x: camera.position.x, y: camera.position.y, z: camera.position.z })
-      camera.position.set(safe.x, safe.y, safe.z)
-    }
+      const want = camera.position.clone()
+      const wantLen = want.distanceTo(t)
+      const safe = walker.springArm({ x: t.x, y: t.y, z: t.z }, { x: want.x, y: want.y, z: want.z })
+      const safeV = new THREE.Vector3(safe.x, safe.y, safe.z)
+      const safeLen = safeV.distanceTo(t)
+      arm.current = arm.current <= 0 || safeLen < arm.current ? safeLen : arm.current + (safeLen - arm.current) * Math.min(1, dt * 2.5)
+      const back = safeV.sub(t).normalize()
+      camera.position.copy(t).addScaledVector(back, arm.current)
+      const av = avatar.current
+      // có trễ: vào góc nhìn thứ nhất khi lùi được < 1,1 m, ra lại khi > 1,5 m (người dùng tự cuộn sát < 0,8 m thì giữ nguyên)
+      const userClose = c.distance < 0.8
+      if (!userClose && wantLen > 1.2) {
+        if (!fpOn.current && safeLen < 1.1) fpOn.current = true
+        else if (fpOn.current && safeLen > 1.5) fpOn.current = false
+      } else fpOn.current = false
+      fpBlend.current += ((fpOn.current ? 1 : 0) - fpBlend.current) * Math.min(1, dt * 8)
+      const k = fpBlend.current
+      if (dbg) (window as unknown as { __hdCam?: object }).__hdCam = { arm: arm.current, fp: k, want: wantLen, safe: safeLen, cd: c.distance }
+      if (k > 0.001 && av) {
+        const fwd = new THREE.Vector3(-back.x, 0, -back.z)
+        if (fwd.lengthSq() < 1e-6) fwd.set(Math.sin(av.heading), 0, Math.cos(av.heading))
+        fwd.normalize()
+        const eye = new THREE.Vector3(av.pos.x, av.pos.y + EYE_HEIGHT, av.pos.z).addScaledVector(fwd, 0.12)
+        camera.position.lerp(eye, k)
+        camera.lookAt(t.clone().lerp(eye.clone().addScaledVector(fwd, 3).setY(eye.y - 0.15), k))
+      }
+      if (av) {
+        // camera gần người thì làm mờ dần; góc nhìn thứ nhất thì ẩn hẳn
+        av.opacity = userClose ? 1 : Math.max(0.3, Math.min(1, (arm.current - 0.6) / 0.8))
+        if (k > 0.35) av.visible = false
+      }
+      const fovWant = FOV_INSIDE + 10 * k
+      if (Math.abs(camera.fov - fovWant) > 0.05) {
+        camera.fov += (fovWant - camera.fov) * Math.min(1, dt * 4)
+        camera.updateProjectionMatrix()
+      }
+    } else arm.current = 0
     if (autoRotate && mode === 'orbit' && !c.active) c.azimuthAngle += dt * 0.12
   })
 

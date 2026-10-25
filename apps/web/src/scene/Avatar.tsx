@@ -9,9 +9,11 @@ export interface AvatarState {
   /** tốc độ hiện tại m/s — điều khiển dáng bước */
   speed: number
   visible: boolean
+  /** độ đậm 0…1 — camera bị ép sát thì làm mờ để không che tầm nhìn */
+  opacity: number
 }
 
-export const newAvatarState = (): AvatarState => ({ pos: new THREE.Vector3(), heading: 0, speed: 0, visible: true })
+export const newAvatarState = (): AvatarState => ({ pos: new THREE.Vector3(), heading: 0, speed: 0, visible: true, opacity: 1 })
 
 /*
  * Tỷ lệ người trưởng thành cao 1,70 m (≈ 7,5 lần chiều cao đầu):
@@ -43,6 +45,13 @@ export const Avatar = ({ state }: { state: React.RefObject<AvatarState> }) => {
     const g = root.current
     if (!g || !s) return
     g.visible = s.visible
+    const op = Math.max(0, Math.min(1, s.opacity))
+    for (const m of Object.values(mat)) {
+      const t = op < 0.99
+      if (m.transparent !== t) (m.transparent = t), (m.needsUpdate = true)
+      m.opacity = op
+      m.depthWrite = !t
+    }
     g.position.copy(s.pos)
     // xoay mượt về hướng đi
     let d = s.heading - g.rotation.y

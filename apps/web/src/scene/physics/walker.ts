@@ -210,33 +210,56 @@ export class Walker {
     return r.success ? r.point : null
   }
 
-  /** Tia từ `a` tới `b`: khoảng cách tới vật cản đầu tiên (m), hoặc null nếu thông. Bỏ qua chính người mẫu. */
-  castRay(a: V3, b: V3): number | null {
+  /** Camera chỉ tránh thứ nhìn thấy và chắn tầm nhìn: tường, kính, sàn / trần, cầu thang — bỏ qua đồ nội thất và lan can vô hình. */
+  private readonly forCamera = (c: RAPIER.Collider) => {
+    const i = this.boxOf.get(c.handle)
+    const k = i == null ? null : this.boxes[i].kind
+    return k !== 'item' && k !== 'rail'
+  }
+
+  /** Tia từ `a` tới `b`: khoảng cách tới vật cản đầu tiên (m), hoặc null nếu thông. Bỏ qua chính người mẫu; `camera` = chỉ vật chắn tầm nhìn. */
+  castRay(a: V3, b: V3, opts: { camera?: boolean } = {}): number | null {
     const dx = b.x - a.x
     const dy = b.y - a.y
     const dz = b.z - a.z
     const len = Math.hypot(dx, dy, dz)
     if (len < 1e-6) return null
     const ray = new RAPIER.Ray(a, { x: dx / len, y: dy / len, z: dz / len })
-    const hit = this.world.castRay(ray, len, true, undefined, undefined, this.collider)
+    const hit = this.world.castRay(ray, len, true, undefined, undefined, this.collider, undefined, opts.camera ? this.forCamera : undefined)
     return hit ? hit.timeOfImpact : null
   }
 
+  /** Từ `target` lùi về phía `want`: quãng đi được trước vật chắn tầm nhìn (cầu chiếu bán kính 0,15 m). */
+  private armLength(target: V3, dir: V3, len: number, pad: number) {
+    const ball = new RAPIER.Ball(0.15)
+    const hit = this.world.castShape(target, { x: 0, y: 0, z: 0, w: 1 }, dir, ball, 0, len, true, undefined, undefined, this.collider, undefined, this.forCamera)
+    return hit ? Math.max(0.05, hit.time_of_impact - pad + 0.15) : len
+  }
+
   /**
-   * Cần lò xo của camera: từ tâm nhìn `target` lùi về phía `want` nhưng dừng trước vật cản (cầu chiếu bán kính 0,15 m).
-   * Trả vị trí camera nên đặt.
+   * Cần lò xo của camera: từ tâm nhìn `target` lùi về phía `want`, dừng trước tường / kính / trần (không tính đồ nội
+   * thất và lan can). Phía sau bị chặn gần thì thử nâng camera cao dần (nhìn qua vai từ trên xuống) và lấy vị trí cho
+   * khoảng nhìn ngang xa nhất — góc nhìn không bị "dí" sát lưng người mẫu. Trả vị trí và tỉ lệ khoảng lùi đạt được (0…1).
    */
-  springArm(target: V3, want: V3, pad = 0.18): V3 {
+  springArm(target: V3, want: V3, pad = 0.18): V3 & { ratio: number } {
     const dx = want.x - target.x
     const dy = want.y - target.y
     const dz = want.z - target.z
     const len = Math.hypot(dx, dy, dz)
-    if (len < 1e-4) return want
-    const dir = { x: dx / len, y: dy / len, z: dz / len }
-    const ball = new RAPIER.Ball(0.15)
-    const hit = this.world.castShape(target, { x: 0, y: 0, z: 0, w: 1 }, dir, ball, 0, len, true, undefined, undefined, this.collider)
-    const d = hit ? Math.max(0.05, hit.time_of_impact - pad + 0.15) : len
-    return { x: target.x + dir.x * d, y: target.y + dir.y * d, z: target.z + dir.z * d }
+    if (len < 1e-4) return { ...want, ratio: 1 }
+    const horiz = Math.hypot(dx, dz) || 1e-6
+    let best: (V3 & { ratio: number }) | null = null
+    for (const lift of [0, 0.5, 1.0]) {
+      const wy = dy + lift
+      const l = Math.hypot(dx, wy, dz)
+      const dir = { x: dx / l, y: wy / l, z: dz / l }
+      const d = this.armLength(target, dir, l, pad)
+      const ratio = Math.min(1, (Math.hypot(dir.x, dir.z) * d) / horiz)
+      // nâng camera chỉ khi được lợi rõ (≥ 15 % khoảng lùi)
+      if (!best || ratio > best.ratio + 0.15) best = { x: target.x + dir.x * d, y: target.y + dir.y * d, z: target.z + dir.z * d, ratio }
+      if (ratio > 0.98) break
+    }
+    return best!
   }
 
   dispose() {
