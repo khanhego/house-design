@@ -7,6 +7,7 @@ import { registerAuth } from './auth.ts'
 import { registerAdmin } from './admin.ts'
 import { registerProjects } from './projects.ts'
 import { registerLibrary } from './library.ts'
+import { registerMaterials } from './materials.ts'
 import { registerModels } from './models.ts'
 import { registerWorkflow } from './workflow.ts'
 import { registerLeads } from './leads.ts'
@@ -20,6 +21,7 @@ export const registerRoutes = async (app: FastifyInstance, ctx: Ctx) => {
   await registerAdmin(app, ctx)
   await registerProjects(app, ctx)
   await registerLibrary(app, ctx)
+  await registerMaterials(app, ctx)
   await registerModels(app, ctx)
   await registerWorkflow(app, ctx)
   await registerLeads(app, ctx)

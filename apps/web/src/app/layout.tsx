@@ -21,6 +21,7 @@ export const StudioLayout = ({ me, children, wide }: { me: Me; children: ReactNo
   const links: [string, string, boolean][] = [
     ['/studio/projects', 'Dự án', true],
     ['/studio/library', 'Thư viện đồ', true],
+    ['/studio/materials', 'Vật liệu', true],
     ['/studio/clients', 'Khách hàng', me.role === 'admin'],
     ['/studio/users', 'Tài khoản', me.role === 'admin'],
     ['/studio/leads', 'Lead', me.role === 'admin'],

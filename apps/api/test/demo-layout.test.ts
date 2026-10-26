@@ -29,7 +29,7 @@ describe('làm mới nhà mẫu đã phát hành', async () => {
     const t = await makeApp()
     await seedDemo(t.ctx, { adminEmail: 'admin@test.vn', adminPassword: 'admin12345' })
     const before = (await t.call('GET', '/api/v1/public/projects/sunrise-garden/houses/biet-thu-b2')).json
-    expect(refreshDemo(t.ctx)).toHaveLength(4)
+    expect(await refreshDemo(t.ctx)).toHaveLength(4)
     const after = (await t.call('GET', '/api/v1/public/projects/sunrise-garden/houses/biet-thu-b2')).json
     expect(after.version.number).toBe(2)
     expect(after.document.coverFileId).toBe(before.document.coverFileId)

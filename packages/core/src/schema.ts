@@ -28,7 +28,7 @@ export const INTERESTS = ['live', 'invest', 'interior', 'other'] as const
 export const PLANS = ['unit', 'project', 'library'] as const
 export const FILE_KINDS = [
   'input', 'logo', 'cover', 'gallery_image', 'library_image', 'item_image',
-  'model_original', 'model_optimized', 'evidence', 'tour_image', 'tour_clip',
+  'model_original', 'model_optimized', 'evidence', 'tour_image', 'tour_clip', 'material_texture',
 ] as const
 export const VERSION_STATES = ['draft', 'pending_review', 'approved', 'published', 'superseded', 'unpublished'] as const
 export const EVENT_TYPES = [
@@ -69,11 +69,15 @@ export const OpeningSchema = z.object({
 
 const PolygonSchema = z.array(PointSchema).max(500)
 
+/** Vật liệu hoàn thiện của phòng (item 03, FR-13.11): id vật liệu trong thư viện vật liệu. */
+export const FinishSchema = z.object({ floor: id.optional(), wall: id.optional(), ceiling: id.optional() })
+
 export const RoomSchema = z.object({
   id,
   name: z.string().min(1).max(80),
   function: z.enum(ROOM_FUNCTIONS),
   polygon: PolygonSchema,
+  finish: FinishSchema.optional(),
 })
 
 export const StairSchema = z.object({
@@ -194,7 +198,15 @@ export const HouseDocumentSchema = z.object({
   exterior: z.object({ modelRef: ModelRefSchema.optional() }).optional(),
   wholeModel: ModelRefSchema.optional(),
   viewpoints: z.array(ViewpointSchema).max(50),
-  lighting: z.object({ night: z.boolean() }),
+  lighting: z.object({
+    night: z.boolean(),
+    /** hướng Bắc (độ, theo chiều kim đồng hồ từ trục −y của mặt bằng) — mặc định 180: mặt tiền (y nhỏ) quay hướng Nam (FR-13.12, BR-R7) */
+    northDeg: z.number().min(0).max(360).optional(),
+    /** giờ trong ngày cho nắng (6–18), mặc định 9 */
+    hour: z.number().min(6).max(18).optional(),
+  }),
+  /** vật liệu dùng chung: cửa đi, bậc thang, mặt ngoài tường bao (FR-13.11) */
+  finishes: z.object({ door: id.optional(), stair: id.optional(), facade: id.optional() }).optional(),
   coverFileId: id.optional(),
   gallery: z.array(id).max(MAX_GALLERY),
   tour: TourSchema.optional(),
@@ -272,6 +284,26 @@ export interface HouseMeta {
   features?: string[]
 }
 
+export const MATERIAL_CATEGORIES = ['wood', 'tile', 'stone', 'concrete', 'paint', 'plaster', 'brick', 'metal', 'fabric', 'other'] as const
+export type MaterialCategory = (typeof MATERIAL_CATEGORIES)[number]
+export const MATERIAL_CATEGORY_LABEL: Record<MaterialCategory, string> = {
+  wood: 'Gỗ', tile: 'Gạch', stone: 'Đá', concrete: 'Bê tông', paint: 'Sơn', plaster: 'Vữa, trát', brick: 'Gạch trần', metal: 'Kim loại', fabric: 'Vải', other: 'Khác',
+}
+export const MATERIAL_MAPS = ['color', 'normal', 'rough'] as const
+export type MaterialMap = (typeof MATERIAL_MAPS)[number]
+
+/** Vật liệu trong snapshot (item 03): thông số + ảnh vân 2 cỡ (1024 / 256) để tải dần. */
+export interface ResolvedMaterial {
+  key: string
+  name: string
+  category: MaterialCategory
+  tileMm: [number, number]
+  color: string
+  roughness: number
+  metalness: number
+  maps: Partial<Record<MaterialMap, { full: string; small: string }>>
+}
+
 export interface Snapshot {
   document: HouseDocument
   house: HouseMeta
@@ -279,6 +311,8 @@ export interface Snapshot {
     libraryItems: Record<string, ResolvedLibraryItem>
     models: Record<string, ResolvedModel>
     files: Record<string, string>
+    /** item 03 — thiếu ở snapshot cũ */
+    materials?: Record<string, ResolvedMaterial>
   }
 }
 

@@ -5,6 +5,7 @@ import { assignItemsToRooms, floorHasContent, formatArea, hasModel3d, hasTour, r
 import type { Floor, PublicHousePayload } from '@hd/core'
 import { fmtArea, vi } from '../i18n/vi.ts'
 import type { CameraApi, StairOption, ViewMode, WallMode } from '../scene/HouseScene.tsx'
+import type { Quality } from '../scene/surfaces.ts'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { ContactButtons, ContactMenu } from './Contact.tsx'
 import { ItemPanel } from './ItemPanel.tsx'
@@ -14,6 +15,10 @@ import { isInAppBrowser } from './data.ts'
 import { PlanTab } from './PlanTab.tsx'
 
 import { TourStage } from '../tour/TourStage.tsx'
+
+type QualityPick = 'auto' | Quality
+/** Máy cảm ứng / màn nhỏ (giống isLowPower của HouseScene — không import để khỏi tải sớm gói 3D). */
+const isLowPower = () => typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 860)
 
 const HouseScene = lazy(() => import('../scene/HouseScene.tsx').then((m) => ({ default: m.HouseScene })))
 
@@ -77,6 +82,24 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const cameraApi = useRef<CameraApi | null>(null)
   const [stairOpt, setStairOpt] = useState<StairOption>(null)
   const [wallMode, setWallMode] = useState<WallMode>('auto')
+  // chất lượng hiển thị (item 03, FR-13.15): Tự động = Nhẹ trên máy yếu / trong Zalo, Facebook; nhớ theo trình duyệt
+  const [qualityPick, setQualityPick] = useState<QualityPick>(() => {
+    try {
+      const v = localStorage.getItem('hd.quality')
+      return v === 'light' || v === 'full' ? v : 'auto'
+    } catch {
+      return 'auto'
+    }
+  })
+  const quality: Quality = qualityPick === 'auto' ? (isLowPower() || isInAppBrowser() ? 'light' : 'full') : qualityPick
+  const pickQuality = (q: QualityPick) => {
+    setQualityPick(q)
+    try {
+      localStorage.setItem('hd.quality', q)
+    } catch {
+      /* chế độ riêng tư */
+    }
+  }
   const [night, setNight] = useState(false)
   const [tab, setTab] = useState<'3d' | 'plan' | 'tour'>(() => {
     const t = q.get('tab')
@@ -286,6 +309,7 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   onReady={() => (setReady(true), events.ready?.())}
                   cameraApi={cameraApi}
                   onStair={setStairOpt}
+                  quality={quality}
                 />
               </Suspense>
             </div>
@@ -401,6 +425,14 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
                   {night ? 'Đêm' : 'Ngày'}
                 </button>
               )}
+              <label className="sel" title="Chất lượng hiển thị: Nhẹ cho điện thoại / mạng chậm, Đẹp cho máy tính">
+                <span className="hide-sm">Chất lượng</span>
+                <select value={qualityPick} onChange={(e) => pickQuality(e.target.value as QualityPick)} aria-label="Chất lượng hiển thị">
+                  <option value="auto">Tự động{qualityPick === 'auto' ? ` (${quality === 'full' ? 'Đẹp' : 'Nhẹ'})` : ''}</option>
+                  <option value="light">Nhẹ</option>
+                  <option value="full">Đẹp</option>
+                </select>
+              </label>
               <button className="icon-btn" onClick={() => cameraApi.current?.reset()} title={mode === 'inside' ? 'Về sau lưng người mẫu' : 'Về góc nhìn ban đầu'} aria-label="Về góc nhìn ban đầu">⌂</button>
               <button className="icon-btn hide-sm" onClick={fullscreen} title="Toàn màn hình">⤢</button>
               <button className="icon-btn" onClick={share} title="Chia sẻ" aria-label="Chia sẻ">↗<span className="hide-sm"> Chia sẻ</span></button>

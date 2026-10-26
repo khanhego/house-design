@@ -5,6 +5,7 @@ export const MAT = {
   wall: new THREE.MeshStandardMaterial({ color: '#f1ede6', roughness: 0.92 }),
   wallTop: new THREE.MeshStandardMaterial({ color: '#d9d2c7', roughness: 0.9 }),
   slab: new THREE.MeshStandardMaterial({ color: '#d8d2c8', roughness: 1 }),
+  ceiling: new THREE.MeshStandardMaterial({ color: '#f6f5f2', roughness: 0.95 }),
   glass: new THREE.MeshStandardMaterial({ color: '#bcd8e6', transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.2, depthWrite: false }),
   frame: new THREE.MeshStandardMaterial({ color: '#3a3836', roughness: 0.5 }),
   door: new THREE.MeshStandardMaterial({ color: '#b08a62', roughness: 0.6 }),

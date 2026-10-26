@@ -1,4 +1,4 @@
-import type { FallbackShape, HouseType, ItemCategory, ModelReport, Variant, VersionState } from '@hd/core'
+import type { FallbackShape, HouseType, ItemCategory, MaterialCategory, MaterialMap, ModelReport, Variant, VersionState } from '@hd/core'
 
 export type Role = 'admin' | 'producer' | 'approver'
 
@@ -142,9 +142,37 @@ export interface LibraryItem {
   updatedAt: string
 }
 
+export type MaterialStatus = 'draft' | 'ready' | 'retired'
+export type MaterialSourceKind = 'free_library' | 'ai' | 'client_file' | 'in_house'
+export type MaterialLicense = 'cc0' | 'cc_by' | 'commercial' | 'client_exclusive'
+
+/** Vật liệu (item 03, migration 004). Mỗi ảnh vân có 2 cỡ: 1024 (đầy đủ) và 256 (nhẹ, tải trước). */
+export interface Material {
+  id: string
+  key: string
+  name: string
+  category: MaterialCategory
+  tileMm: [number, number]
+  color: string
+  roughness: number
+  metalness: number
+  files: Partial<Record<MaterialMap, { full: string; small: string }>>
+  sourceKind: MaterialSourceKind
+  sourceName: string | null
+  sourceUrl: string | null
+  license: MaterialLicense | null
+  attribution: string | null
+  clientId: string | null
+  status: MaterialStatus
+  approvedBy: string | null
+  approvedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type FileKind =
   | 'input' | 'logo' | 'cover' | 'gallery_image' | 'library_image' | 'item_image'
-  | 'model_original' | 'model_optimized' | 'evidence' | 'tour_image' | 'tour_clip'
+  | 'model_original' | 'model_optimized' | 'evidence' | 'tour_image' | 'tour_clip' | 'material_texture'
 
 export interface FileRow {
   id: string

@@ -143,3 +143,24 @@ export interface LibraryRow {
 }
 
 export type { Snapshot }
+
+/** Vật liệu (item 03, API-M1). */
+export interface MaterialRow {
+  id: string
+  key: string
+  name: string
+  category: import('@hd/core').MaterialCategory
+  tileMm: [number, number]
+  color: string
+  roughness: number
+  metalness: number
+  maps: Partial<Record<import('@hd/core').MaterialMap, { full: string; small: string }>>
+  sourceKind: 'free_library' | 'ai' | 'client_file' | 'in_house'
+  sourceName: string | null
+  sourceUrl: string | null
+  license: 'cc0' | 'cc_by' | 'commercial' | 'client_exclusive' | null
+  attribution: string | null
+  clientId: string | null
+  status: 'draft' | 'ready' | 'retired'
+  approvedAt: string | null
+}

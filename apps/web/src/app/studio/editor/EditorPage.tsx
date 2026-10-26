@@ -18,6 +18,7 @@ import { HouseInfoDialog } from './HouseInfo.tsx'
 
 const ModelTab = lazy(() => import('./ModelTab.tsx').then((m) => ({ default: m.ModelTab })))
 const ItemsTab = lazy(() => import('./ItemsTab.tsx').then((m) => ({ default: m.ItemsTab })))
+const FinishTab = lazy(() => import('./FinishTab.tsx').then((m) => ({ default: m.FinishTab })))
 const ViewsTab = lazy(() => import('./ViewsTab.tsx').then((m) => ({ default: m.ViewsTab })))
 const TourTab = lazy(() => import('./TourTab.tsx').then((m) => ({ default: m.TourTab })))
 
@@ -38,6 +39,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'frame', label: 'Khung' },
   { id: 'model', label: 'Mô hình' },
   { id: 'items', label: 'Đồ' },
+  { id: 'finish', label: 'Vật liệu & ánh sáng' },
   { id: 'views', label: 'Điểm nhìn & ảnh' },
   { id: 'tour', label: 'Ảnh thật' },
 ]
@@ -61,6 +63,9 @@ export const EditorPage = ({ me }: { me: Me }) => {
     // luôn lấy bản mới khi mở trình dựng, không giữ cache sau khi rời (R-G3-04); không tự tải lại giữa lúc đang sửa
     staleTime: 0, gcTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: false, refetchOnReconnect: false })
   const projectId = house.data?.house.projectId
+  // khách của dự án → vật liệu riêng của khách hiện trong trình dựng (item 03)
+  const project = useQuery({ queryKey: ['project', projectId], queryFn: () => api<{ project: { clientId: string } }>('GET', `projects/${projectId}`), enabled: !!projectId })
+  useEffect(() => useEditor.getState().setClientId(project.data?.project.clientId ?? null), [project.data])
   const inputs = useQuery({ queryKey: ['files', projectId], queryFn: () => api<{ items: FileOut[] }>('GET', `projects/${projectId}/files`), enabled: !!projectId })
 
   const [checks, setChecks] = useState<Check[]>([])
@@ -208,6 +213,7 @@ export const EditorPage = ({ me }: { me: Me }) => {
           <Suspense fallback={<div className="center-page"><div className="spinner" /></div>}>
             {tab === 'model' && projectId && <ModelTab projectId={projectId} onChecks={setChecks} />}
             {tab === 'items' && <ItemsTab />}
+            {tab === 'finish' && <FinishTab />}
             {tab === 'views' && projectId && <ViewsTab projectId={projectId} />}
             {tab === 'tour' && projectId && <TourTab projectId={projectId} />}
           </Suspense>

@@ -102,6 +102,8 @@ export interface CheckContext {
   libraryModels: Record<string, string | null | undefined>
   /** kích thước + loại đồ thư viện — để kiểm lối đi có tính đồ nội thất */
   libraryItems?: NavLibrary
+  /** vật liệu mẫu nhà dùng: tên + trạng thái (item 03, FR-13.16) — thiếu id = vật liệu không còn */
+  materials?: Record<string, { name: string; status: 'draft' | 'ready' | 'retired' }>
 }
 
 /** Mô hình được tham chiếu trong một góc xem tầng: tầng + ngoại thất + cả nhà + GLB đồ thư viện trên tầng. */
@@ -153,7 +155,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
 export interface Check {
   level: 'block' | 'warn'
   code:
-    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'STAIR_NOWHERE' | 'MODEL_PROCESSING'
+    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'STAIR_NOWHERE' | 'MATERIAL_NOT_READY' | 'MODEL_PROCESSING'
     | 'MODEL_FAILED' | 'MODEL_NODE_MISSING' | 'BUDGET_BLOCK' | 'BUDGET_WARN' | 'NO_COVER'
     | 'FLOOR_NO_OUTLINE' | 'NO_DEFAULT_VIEWPOINT'
   message: string
@@ -205,6 +207,13 @@ export const guessChapter = (title: string): TourChapter | undefined => {
 
 export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => {
   const out: Check[] = []
+  // vật liệu chưa duyệt giấy phép / đã ngừng dùng → không gửi duyệt được (FR-13.05, FR-13.16)
+  if (ctx.materials)
+    for (const id of materialIds(doc)) {
+      const m = ctx.materials[id]
+      if (!m || m.status !== 'ready')
+        out.push({ level: 'block', code: 'MATERIAL_NOT_READY', objectId: id, message: m ? `Vật liệu "${m.name}" ${m.status === 'draft' ? 'chưa được duyệt giấy phép' : 'đã ngừng dùng'}` : 'Có vật liệu không còn trong thư viện' })
+    }
   const tourScenes = doc.tour?.scenes ?? []
   if (!hasModel3d(doc) && !tourScenes.length)
     out.push({ level: 'block', code: 'NO_CONTENT', message: 'Mẫu nhà chưa có tầng dựng hoặc tour ảnh thật' })
@@ -363,6 +372,14 @@ export const sortedFloors = (doc: HouseDocument) => [...doc.floors].sort((a, b) 
 export const libraryItemIds = (doc: HouseDocument): string[] => {
   const ids = new Set<string>()
   for (const f of doc.floors) for (const it of f.items) if ('libraryItemId' in it.source) ids.add(it.source.libraryItemId)
+  return [...ids]
+}
+
+/** id vật liệu mẫu nhà đang dùng (sàn / tường / trần từng phòng + cửa, bậc thang, mặt ngoài) — item 03. */
+export const materialIds = (doc: HouseDocument): string[] => {
+  const ids = new Set<string>()
+  for (const f of doc.floors) for (const r of f.rooms) for (const v of Object.values(r.finish ?? {})) if (v) ids.add(v)
+  for (const v of Object.values(doc.finishes ?? {})) if (v) ids.add(v)
   return [...ids]
 }
 

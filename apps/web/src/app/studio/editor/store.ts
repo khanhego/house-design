@@ -5,7 +5,7 @@ import type { Floor, HouseDocument, Point } from '@hd/core'
 /* Store trình dựng A3 (02b §3.1). Mỗi thao tác sửa đẩy bản sao tài liệu vào ngăn hoàn tác (tối đa 100). */
 
 export type Tool = 'select' | 'calibrate' | 'wall' | 'room' | 'door' | 'window' | 'stair' | 'area' | 'outline' | 'measure'
-export type Tab = 'frame' | 'model' | 'items' | 'views' | 'tour'
+export type Tab = 'frame' | 'model' | 'items' | 'finish' | 'views' | 'tour'
 export type SelKind = 'wall' | 'opening' | 'room' | 'stair' | 'area' | 'outline' | 'item'
 export interface Selection {
   kind: SelKind
@@ -28,6 +28,9 @@ interface EditorState {
   dirty: boolean
   saveState: SaveState
   savedAt: string | null
+  /** khách hàng của dự án — lọc vật liệu riêng của khách (item 03, BR-R3) */
+  clientId: string | null
+  setClientId: (id: string | null) => void
   /** điểm đang vẽ dở (mm) */
   draft: Point[]
   load: (p: { versionId: string; houseId: string; state: string; doc: HouseDocument; revision: number }) => void
@@ -63,6 +66,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   dirty: false,
   saveState: 'idle',
   savedAt: null,
+  clientId: null,
+  setClientId: (clientId) => set({ clientId }),
   draft: [],
   load: ({ versionId, houseId, state, doc, revision }) =>
     set({

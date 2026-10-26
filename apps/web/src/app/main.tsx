@@ -11,6 +11,7 @@ import { ToastHost } from './ui.tsx'
 import { ClientDetailPage, ClientsPage, UsersPage } from './studio/Clients.tsx'
 import { ProjectDetailPage, ProjectsPage } from './studio/Projects.tsx'
 import { LibraryPage } from './studio/Library.tsx'
+import { MaterialsPage } from './studio/Materials.tsx'
 
 const Editor = lazy(() => import('./studio/editor/EditorPage.tsx').then((m) => ({ default: m.EditorPage })))
 const Versions = lazy(() => import('./studio/Versions.tsx').then((m) => ({ default: m.VersionsPage })))
@@ -42,6 +43,7 @@ const App = () => (
       <Route path="/studio/projects" element={<Guard area="studio">{(me) => <StudioLayout me={me}><ProjectsPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/projects/:id" element={<Guard area="studio">{(me) => <StudioLayout me={me}><ProjectDetailPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/library" element={<Guard area="studio">{(me) => <StudioLayout me={me}><LibraryPage /></StudioLayout>}</Guard>} />
+      <Route path="/studio/materials" element={<Guard area="studio">{(me) => <StudioLayout me={me}><MaterialsPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/clients" element={<Guard area="studio" roles={['admin']}>{(me) => <StudioLayout me={me}><ClientsPage /></StudioLayout>}</Guard>} />
       <Route path="/studio/clients/:id" element={<Guard area="studio" roles={['admin']}>{(me) => <StudioLayout me={me}><ClientDetailPage /></StudioLayout>}</Guard>} />
       <Route path="/studio/users" element={<Guard area="studio" roles={['admin']}>{(me) => <StudioLayout me={me}><UsersPage /></StudioLayout>}</Guard>} />

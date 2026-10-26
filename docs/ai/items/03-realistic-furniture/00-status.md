@@ -15,15 +15,15 @@
 | Gate | Trạng thái | Ngày | Người duyệt | Ghi chú |
 |:---:|:---:|---|---|---|
 | G1 Yêu cầu | ✅ | 2026-10-26 | khanhtt | SRS v1.0 — "Code đi"; Q-R1…R4 chốt |
-| G2 Thiết kế | ⬜ | | | |
-| G3 Build | ⬜ | | | |
+| G2 Thiết kế | ▶ R1 | 2026-10-26 | agent | `02-tech-spec.md` lát R1 (R2–R5 viết khi tới) |
+| G3 Build | ▶ R1 | 2026-10-26 | | R1 implement xong, chưa review subagent |
 | G4 Kiểm thử | ⬜ | | | |
 | G5 Release | ⬜ | | | |
 
 ## NOW
 | Owner tiếp | Việc tiếp | Skill |
 |---|---|---|
-| Architect | Tech spec `02` (lát R1 trước) | ai-architect-write-spec |
+| Architect / Dev | Lát R2: mô hình đồ chân thực (nhập file, chuẩn hoá, bản nhẹ, giấy phép), spec rồi implement | ai-architect-write-spec · ai-be-implement · ai-fe-implement |
 
 ## Decisions
 | ID | Chủ đề | Quyết định | Lý do | Người | Ngày |
@@ -35,10 +35,16 @@
 | DEC-R6 | Q-R2 SketchUp | Không nhận `.skp`; khách xuất GLB/FBX/OBJ theo hướng dẫn | user chọn | khanhtt | 2026-10-26 |
 | DEC-R7 | Q-R3 kho chuẩn | 60 món · 30 vật liệu · 2 bộ đồ (Hiện đại, Tối giản) | user chọn | khanhtt | 2026-10-26 |
 | DEC-R8 | Q-R4 khách gửi file | Cổng tải lên cho khách (FR-13.19 nâng lên M, lát R4) | user chọn | khanhtt | 2026-10-26 |
+| DEC-R9 | Ảnh vân chuẩn | Tải sẵn ảnh CC0 Poly Haven vào repo (2,9 MB, `scripts/fetch-materials.ts`) thay vì tải lúc seed: CI, demo tĩnh chạy không cần mạng; gạch men ốp WC sinh bằng code (kho không có gạch men sạch) | | Agent | 2026-10-26 |
+| DEC-R10 | Mô hình dữ liệu vật liệu | Bảng `materials` riêng (migration 004), id lưu trong `Room.finish` / `HouseDocument.finishes`; không gán thì giữ hiển thị cũ, không phải chuyển đổi tài liệu cũ | | Agent | 2026-10-26 |
+| DEC-R11 | Ánh sáng | RoomEnvironment (không tải HDRI) + Sky + mặt trời theo `northDeg`/`hour` (vĩ độ 16°B, xuân phân) | Nhẹ cho điện thoại | Agent | 2026-10-26 |
+| DEC-R12 | Tải dần | Ảnh 256 cho mọi vật liệu đang dùng ngay khi mở; chất lượng Đẹp tải tiếp 1024 cho mọi vật liệu đang dùng (không giới hạn theo tầng như spec: một nhà ≈ 10–15 vật liệu, tổng ≈ 3–5 MB) | Đơn giản, đủ NFR-R1 | Agent | 2026-10-26 |
+| DEC-R13 | UI | Gộp tab Vật liệu và Ánh sáng thành một tab trình dựng: Vật liệu & ánh sáng | Ít chuyển tab | Agent | 2026-10-26 |
 | DEC-R4 | Điện thoại / Zalo | Tải dần: bản nhẹ trước (giữ NFR-01), bản đầy đủ tải sau | Trả lời làm rõ | khanhtt | 2026-10-26 |
 
 ## Lịch sử
 | Ngày | Ai | Việc |
 |---|---|---|
+| 2026-10-26 | Agent | Lát R1 implement: migration 004 (sao lưu `data/app.db.bak-truoc-migration-004`), API-M1…M5, 30 vật liệu chuẩn, vật liệu sàn/tường/trần/cửa/bậc thang, nắng + bầu trời + phản chiếu, chất lượng Tự động/Nhẹ/Đẹp, tab trình dựng, trang Vật liệu; core 36 · api 94 · web 38 · E2E 4/4 |
 | 2026-10-26 | PO | SRS `01-srs.md` v0.1 (M13, FR-13.01–13.19, BR-R1–R8, NFR-R1–R6, AC-R1–R12, 5 lát R1–R5) |
 | 2026-10-26 | Agent | Mở item 03 (lane feature, quy mô L), nhánh `feat/03-realistic-furniture` từ `dev`. User: "chèn đồ thật, thay vì mô hình vào từng thiết kế, cảm giác người dùng đang đi trong 1 ngôi nhà thật"; yêu cầu ghi SRS trước khi triển khai |

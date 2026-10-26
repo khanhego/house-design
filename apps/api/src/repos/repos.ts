@@ -3,7 +3,7 @@ import type { HouseDocument } from '@hd/core'
 import { nowIso, parseJson } from '../db/sqlite.ts'
 import type { Db, Row } from '../db/sqlite.ts'
 import type {
-  Client, FileKind, FileRow, House, LibraryItem, ModelAsset, Project, Review, Submission, User, Version,
+  Client, FileKind, FileRow, House, LibraryItem, Material, ModelAsset, Project, Review, Submission, User, Version,
 } from './types.ts'
 
 /* Repository SQL thuần (DEC-21). Mỗi hàm map hàng ↔ object camelCase. */
@@ -490,6 +490,100 @@ export const library = (db: Db) => ({
   },
 })
 
+/* ---------- vật liệu (item 03) ---------- */
+
+const MAPS = ['color', 'normal', 'rough'] as const
+
+const toMaterial = (r: Row): Material => {
+  const files: Material['files'] = {}
+  for (const m of MAPS) {
+    const full = r[`${m}_file_id`] as string | null
+    const small = r[`${m}_small_file_id`] as string | null
+    if (full && small) files[m] = { full, small }
+  }
+  return {
+    id: r.id as string,
+    key: r.key as string,
+    name: r.name as string,
+    category: r.category as Material['category'],
+    tileMm: [r.tile_w_mm as number, r.tile_h_mm as number],
+    color: r.color as string,
+    roughness: r.roughness as number,
+    metalness: r.metalness as number,
+    files,
+    sourceKind: r.source_kind as Material['sourceKind'],
+    sourceName: (r.source_name as string) ?? null,
+    sourceUrl: (r.source_url as string) ?? null,
+    license: (r.license as Material['license']) ?? null,
+    attribution: (r.attribution as string) ?? null,
+    clientId: (r.client_id as string) ?? null,
+    status: r.status as Material['status'],
+    approvedBy: (r.approved_by as string) ?? null,
+    approvedAt: (r.approved_at as string) ?? null,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
+  }
+}
+
+export type MaterialInput = Pick<Material, 'key' | 'name' | 'category' | 'tileMm' | 'color' | 'roughness' | 'metalness' | 'sourceKind' | 'sourceName' | 'sourceUrl' | 'license' | 'attribution' | 'clientId'>
+
+export const materials = (db: Db) => ({
+  create(i: MaterialInput): Material {
+    const id = newId('mat')
+    const t = nowIso()
+    db.run(
+      'INSERT INTO materials (id, key, name, category, tile_w_mm, tile_h_mm, color, roughness, metalness, source_kind, source_name, source_url, license, attribution, client_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      id, i.key, i.name, i.category, i.tileMm[0], i.tileMm[1], i.color, i.roughness, i.metalness, i.sourceKind, i.sourceName, i.sourceUrl, i.license, i.attribution, i.clientId, t, t,
+    )
+    return this.get(id)!
+  },
+  get: (id: string) => {
+    const r = db.get('SELECT * FROM materials WHERE id = ?', id)
+    return r ? toMaterial(r) : undefined
+  },
+  byKey: (key: string) => {
+    const r = db.get('SELECT * FROM materials WHERE key = ?', key)
+    return r ? toMaterial(r) : undefined
+  },
+  byIds: (ids: string[]): Map<string, Material> => {
+    if (!ids.length) return new Map()
+    const rows = db.all(`SELECT * FROM materials WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids).map(toMaterial)
+    return new Map(rows.map((m) => [m.id, m]))
+  },
+  /** Kho chung + của khách `clientId` (BR-R3); `allClients` cho QTV xem hết. */
+  list: (f: { clientId?: string | null; allClients?: boolean; includeRetired?: boolean; category?: string } = {}) => {
+    const where: string[] = []
+    const params: string[] = []
+    if (!f.includeRetired) where.push("status <> 'retired'")
+    if (!f.allClients) {
+      if (f.clientId) {
+        where.push('(client_id IS NULL OR client_id = ?)')
+        params.push(f.clientId)
+      } else where.push('client_id IS NULL')
+    }
+    if (f.category) {
+      where.push('category = ?')
+      params.push(f.category)
+    }
+    return db.all(`SELECT * FROM materials ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY category, name COLLATE NOCASE`, ...params).map(toMaterial)
+  },
+  update(id: string, p: Partial<MaterialInput> & { status?: Material['status']; approvedBy?: string | null; approvedAt?: string | null }) {
+    const cur = this.get(id)
+    if (!cur) return undefined
+    const n = { ...cur, ...p }
+    db.run(
+      'UPDATE materials SET key=?, name=?, category=?, tile_w_mm=?, tile_h_mm=?, color=?, roughness=?, metalness=?, source_kind=?, source_name=?, source_url=?, license=?, attribution=?, client_id=?, status=?, approved_by=?, approved_at=?, updated_at=? WHERE id=?',
+      n.key, n.name, n.category, n.tileMm[0], n.tileMm[1], n.color, n.roughness, n.metalness, n.sourceKind, n.sourceName, n.sourceUrl, n.license, n.attribution, n.clientId,
+      n.status, n.approvedBy, n.approvedAt, nowIso(), id,
+    )
+    return this.get(id)!
+  },
+  setMap(id: string, map: (typeof MAPS)[number], full: string, small: string) {
+    db.run(`UPDATE materials SET ${map}_file_id = ?, ${map}_small_file_id = ?, updated_at = ? WHERE id = ?`, full, small, nowIso(), id)
+    return this.get(id)!
+  },
+})
+
 export const makeRepos = (db: Db) => ({
   clients: clients(db),
   users: users(db),
@@ -501,6 +595,7 @@ export const makeRepos = (db: Db) => ({
   reviews: reviews(db),
   models: models(db),
   library: library(db),
+  materials: materials(db),
 })
 
 export type Repos = ReturnType<typeof makeRepos>

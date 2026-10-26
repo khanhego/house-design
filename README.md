@@ -38,6 +38,10 @@ NODE_ENV=development WEB_DIST=apps/web/dist node apps/api/src/main.ts
 
 Kiểm tra: `npm run lint`, `npm test`, `npx playwright test`.
 
+## Nguồn tài nguyên
+
+Ảnh vân vật liệu chuẩn: [Poly Haven](https://polyhaven.com) (CC0), Powered by Poly Haven.
+
 ## CI/CD
 
 `.github/workflows/ci-cd.yml`: mỗi lần đẩy lên `main` hoặc `dev`, chạy lint, unit (gồm mô phỏng đi bộ trên 4 nhà mẫu)

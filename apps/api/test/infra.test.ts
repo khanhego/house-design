@@ -31,7 +31,7 @@ describe('T-3 hạ tầng', () => {
   it('migration tạo đủ bảng', () => {
     const tables = t.ctx.db.all<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name)
     expect(tables).toEqual([
-      'clients', 'files', 'houses', 'jobs', 'leads', 'library_items', 'model_assets', 'outbox_emails', 'projects', 'reviews',
+      'clients', 'files', 'houses', 'jobs', 'leads', 'library_items', 'materials', 'model_assets', 'outbox_emails', 'projects', 'reviews',
       'schema_migrations', 'sessions', 'submission_files', 'submissions', 'tokens', 'users', 'versions', 'view_events',
     ])
   })

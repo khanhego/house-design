@@ -5,7 +5,7 @@ import { exifDate } from '../lib/exif.ts'
 import { sanitizeMp4 } from '../lib/mp4.ts'
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { cloneDocument, emptyDocument, HOUSE_TYPES, HouseDocumentSchema } from '@hd/core'
+import { cloneDocument, emptyDocument, HOUSE_TYPES, HouseDocumentSchema, materialIds } from '@hd/core'
 import type { HouseDocument, Snapshot } from '@hd/core'
 import type { Ctx } from '../context.ts'
 import { AppError, forbidden, notFound, validation } from '../lib/errors.ts'
@@ -147,6 +147,18 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
   }
   const lib = ctx.repos.library.byIds([...libIds])
   for (const id of libIds) if (!lib.get(id) || lib.get(id)!.archived) errs[`library.${id}`] = 'Đồ thư viện không tồn tại hoặc đã lưu trữ'
+  // vật liệu (item 03): phải có trong thư viện, thuộc kho chung hoặc đúng khách của dự án (BR-R3).
+  // Vật liệu nháp / ngừng dùng vẫn lưu được để sửa dần — chặn ở bước gửi duyệt (MATERIAL_NOT_READY)
+  const matIds = materialIds(doc)
+  if (matIds.length) {
+    const clientId = ctx.repos.projects.get(projectId)?.clientId ?? null
+    const mats = ctx.repos.materials.byIds(matIds)
+    for (const id of matIds) {
+      const m = mats.get(id)
+      if (!m) errs[`materials.${id}`] = 'Vật liệu không tồn tại'
+      else if (m.clientId && m.clientId !== clientId) errs[`materials.${id}`] = 'Vật liệu thuộc khách hàng khác'
+    }
+  }
   const fs = ctx.repos.files.byIds([...fileIds])
   for (const id of fileIds) {
     const f = fs.get(id)

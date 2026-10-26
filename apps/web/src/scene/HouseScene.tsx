@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, Html } from '@react-three/drei'
+import { CameraControls, Html, Sky } from '@react-three/drei'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import * as THREE from 'three'
 import { bboxOf, pointInPolygon, roomLabelPoint, sortedFloors, stairObstacles, wallsOutline } from '@hd/core'
 import type { Floor, HouseDocument, ModelRef, Point, Snapshot } from '@hd/core'
@@ -16,6 +17,9 @@ import { bestSpot, blockersOf, furnitureBlockers, navGridOf, nearestFreeIn, open
 import { stepTowards } from './walk.ts'
 import type { Blocker, P2, Portal } from './walk.ts'
 import { useWalker } from './physics/useWalker.ts'
+import { SurfaceContext, useSurfaceKit } from './surfaces.ts'
+import type { Quality } from './surfaces.ts'
+import { sunColor, sunFor } from './sun.ts'
 import type { V3, Walker } from './physics/walker.ts'
 
 export type ViewMode = 'orbit' | 'facade' | 'inside'
@@ -49,6 +53,8 @@ export interface HouseSceneProps {
   cameraApi?: React.RefObject<CameraApi | null>
   /** người mẫu bước lên / rời cầu thang (chế độ Đứng trong phòng) */
   onStair?: (o: StairOption) => void
+  /** chất lượng hiển thị (item 03, FR-13.15): nhẹ = ảnh vân 256, không bóng; đẹp = ảnh 1024 tải sau, bóng 4096 */
+  quality?: Quality
 }
 
 export interface HouseBounds {
@@ -79,7 +85,25 @@ export const houseBounds = (doc: HouseDocument): HouseBounds => {
 
 /* ---------- ánh sáng ---------- */
 
-const Lights = ({ bounds, night, floor, lowPower }: { bounds: HouseBounds; night: boolean; floor: Floor | null; lowPower: boolean }) => {
+/** Phản chiếu môi trường (item 03, DEC-R11): RoomEnvironment dựng sẵn trong three — không tải ảnh HDRI. */
+const EnvironmentLight = ({ intensity }: { intensity: number }) => {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    const pm = new THREE.PMREMGenerator(gl)
+    const env = pm.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = env
+    return () => {
+      scene.environment = null
+      env.dispose()
+      pm.dispose()
+    }
+  }, [gl, scene])
+  useEffect(() => void (scene.environmentIntensity = intensity), [scene, intensity])
+  return null
+}
+
+const Lights = ({ bounds, night, floor, lowPower, northDeg, hour, quality }: { bounds: HouseBounds; night: boolean; floor: Floor | null; lowPower: boolean; northDeg?: number; hour?: number; quality: Quality }) => {
   const span = Math.max(M(bounds.w), M(bounds.d), 8)
   const cx = M(bounds.cx)
   const cz = M(bounds.cy)
@@ -93,18 +117,27 @@ const Lights = ({ bounds, night, floor, lowPower }: { bounds: HouseBounds; night
       }),
     )
   }, [night, floor])
+  // nắng theo hướng nhà + giờ (FR-13.12): vệt nắng qua cửa sổ đúng phía, đổi theo giờ
+  const sun = useMemo(() => sunFor(northDeg, hour), [northDeg, hour])
+  const far = span * 1.6
+  const sunPos: [number, number, number] = [cx + sun.dir[0] * far, Math.max(1.5, sun.dir[1] * far), cz + sun.dir[2] * far]
+  const shadows = !lowPower && quality === 'full'
   return (
     <>
-      <color attach="background" args={[night ? '#1a1e28' : '#ebe7e0']} />
-      <fog attach="fog" args={[night ? '#1a1e28' : '#ebe7e0', span * 3.5, span * 8]} />
-      <hemisphereLight args={[night ? '#5a6a90' : '#fffaf0', night ? '#20232b' : '#b9ab98', night ? 0.3 : 1.15]} />
+      <color attach="background" args={[night ? '#1a1e28' : '#dfe6ec']} />
+      <fog attach="fog" args={[night ? '#1a1e28' : '#dfe6ec', span * 3.5, span * 8]} />
+      {!night && <Sky distance={450} sunPosition={[sun.dir[0], Math.max(0.02, sun.dir[1]), sun.dir[2]]} turbidity={6} rayleigh={1.2} mieCoefficient={0.004} mieDirectionalG={0.8} />}
+      <EnvironmentLight intensity={night ? 0.1 : 0.35} />
+      <hemisphereLight args={[night ? '#5a6a90' : '#fbf6ee', night ? '#20232b' : '#b3a691', night ? 0.22 : 0.42]} />
       <directionalLight
-        position={[cx + span * 0.6, span * 1.3, cz - span * 0.5]}
-        intensity={night ? 0.25 : 2.1}
-        color={night ? '#9fb2ff' : '#fff3e0'}
-        castShadow={!lowPower}
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0004}
+        position={sunPos}
+        intensity={night ? 0.2 : 0.4 + 2.1 * sun.strength}
+        color={night ? '#9fb2ff' : sunColor(sun.altitude)}
+        castShadow={shadows}
+        shadow-mapSize={quality === 'full' ? [4096, 4096] : [2048, 2048]}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.02}
+        shadow-radius={4}
         shadow-camera-left={-span}
         shadow-camera-right={span}
         shadow-camera-top={span}
@@ -114,7 +147,7 @@ const Lights = ({ bounds, night, floor, lowPower }: { bounds: HouseBounds; night
         <object3D attach="target" position={[cx, 0, cz]} />
       </directionalLight>
       {lamps.map((l) => (
-        <pointLight key={l.id} position={l.pos} intensity={5} distance={7} color="#ffcf91" />
+        <pointLight key={l.id} position={l.pos} intensity={5} distance={7} color="#ffcf91" castShadow={false} />
       ))}
     </>
   )
@@ -627,6 +660,9 @@ const Model = ({ data, modelRef, floorElevationM, wallMode, target, topClipY, fl
 
 const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
   const { data, floorId, roomId, mode, wallMode, night, selectedItemId, variants } = p
+  const quality: Quality = p.quality ?? (p.lowPower ? 'light' : 'full')
+  // vật liệu thật (item 03): ảnh vân tải dần theo chất lượng
+  const surfaces = useSurfaceKit(data.resolved.materials, quality)
   const doc = data.document
   const floors = useMemo(() => sortedFloors(doc), [doc])
   const bounds = useMemo(() => houseBounds(doc), [doc])
@@ -711,8 +747,8 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
       }
 
   return (
-    <>
-      <Lights bounds={bounds} night={night} floor={floor ?? floors[floors.length - 1] ?? null} lowPower={p.lowPower} />
+    <SurfaceContext.Provider value={surfaces}>
+      <Lights bounds={bounds} night={night} floor={floor ?? floors[floors.length - 1] ?? null} lowPower={p.lowPower} northDeg={doc.lighting.northDeg} hour={doc.lighting.hour} quality={quality} />
       <CameraRig
         doc={doc} bounds={bounds} floor={floor} roomId={roomId} mode={mode} autoRotate={!!p.autoRotate} target={target}
         walkGoal={walkGoal} walkPath3={walkPath3} walker={walker} avatar={avatar} blockers={blockers} portals={portals} api={p.cameraApi} rig={rig} suppressTeleport={suppressTeleport}
@@ -739,6 +775,8 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
               selectedRoomId={isCurrent ? roomId : null}
               onRoomClick={isCurrent ? onRoomClick(f) : undefined}
               onRoomDoubleClick={isCurrent && mode !== 'inside' ? (_r, pt) => rig.current?.focus?.(pt) : undefined}
+              finishes={doc.finishes}
+              showCeiling={mode === 'inside' && isCurrent}
             />
             {f.modelRef && (
               <Model data={data} modelRef={f.modelRef} floorElevationM={M(f.elevation)} wallMode={isCurrent ? effWallMode : 'full'} target={target} topClipY={null} floorId={f.id} onPick={pickNode} selectedNode={selectedNodeItem} />
@@ -757,7 +795,7 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
 
       {p.hoverLabel && p.hoverItemId && <HoverLabel floors={floors} itemId={p.hoverItemId} label={p.hoverLabel} data={data} />}
       <Ready onReady={p.onReady} />
-    </>
+    </SurfaceContext.Provider>
   )
 }
 

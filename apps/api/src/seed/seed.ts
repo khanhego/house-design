@@ -5,7 +5,11 @@ import type { Ctx } from '../context.ts'
 import { hashPassword } from '../lib/auth.ts'
 import type { AuthUser } from '../services/access.ts'
 import { publish, review, submit } from '../services/workflow.ts'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { demoHouses, LIBRARY } from './demoHouses.ts'
+import { DEFAULT_FINISH, DEFAULT_SHARED_FINISH, MATERIAL_CATALOG, sourceUrlOf } from './materialCatalog.ts'
+import { saveTexture } from '../services/materials.ts'
 
 const DEMO_PASSWORD = 'admin12345'
 
@@ -40,6 +44,73 @@ const coverSvg = (doc: HouseDocument, title: string, color: string) => {
   <text x="60" y="752" font-family="Helvetica, Arial, sans-serif" font-size="44" font-weight="700" fill="#fff">${escapeXml(title)}</text>
 </svg>`
 }
+
+/** Ảnh vân gạch men sinh bằng code: màu (men + ron), độ nhám (men bóng, ron nhám), pháp tuyến (ron lõm). */
+const tileTextures = async (g: { cols: number; rows: number; glaze: string; grout: string; groutMm: number }): Promise<['color' | 'rough' | 'normal', Buffer][]> => {
+  const S = 1024
+  const w = S / g.cols
+  const h = S / g.rows
+  const gr = Math.max(2, (g.groutMm / 1200) * S * 1.5)
+  const cells = (fill: (i: number) => string) =>
+    Array.from({ length: g.cols * g.rows }, (_, i) => `<rect x="${(i % g.cols) * w + gr / 2}" y="${Math.floor(i / g.cols) * h + gr / 2}" width="${w - gr}" height="${h - gr}" fill="${fill(i)}"/>`).join('')
+  const svg = (bg: string, fill: (i: number) => string) => `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}"><rect width="${S}" height="${S}" fill="${bg}"/>${cells(fill)}</svg>`
+  // men hơi lệch màu từng viên cho đỡ "phẳng"
+  const shade = (i: number) => ['#f3f3f0', '#f1f1ee', '#f4f4f1', '#f0f0ec'][i % 4]
+  const color = await sharp(Buffer.from(svg(g.grout, (i) => (g.glaze === '#f3f3f0' ? shade(i) : g.glaze)))).jpeg({ quality: 90 }).toBuffer()
+  const rough = await sharp(Buffer.from(svg('#d0d0d0', () => '#202020'))).greyscale().jpeg({ quality: 90 }).toBuffer()
+  // pháp tuyến phẳng (128,128,255), ron hơi lệch để bắt sáng
+  const normal = await sharp(Buffer.from(svg('#8080e6', () => '#8080ff'))).jpeg({ quality: 92 }).toBuffer()
+  return [['color', color], ['rough', rough], ['normal', normal]]
+}
+
+/**
+ * Bộ vật liệu chuẩn (item 03, DEC-R7): tạo nếu chưa có, ảnh vân CC0 tải sẵn ở seed/materials/, duyệt bởi QTV.
+ * Trả key → id.
+ */
+export const seedMaterials = async (ctx: Ctx, adminId: string): Promise<Record<string, string>> => {
+  const out: Record<string, string> = {}
+  const dir = join(import.meta.dirname, 'materials')
+  for (const c of MATERIAL_CATALOG) {
+    let m = ctx.repos.materials.byKey(c.key)
+    if (!m) {
+      m = ctx.repos.materials.create({
+        key: c.key, name: c.name, category: c.category, tileMm: c.tileMm, color: c.color, roughness: c.roughness, metalness: c.metalness ?? 0,
+        sourceKind: c.polyhaven ? 'free_library' : 'in_house',
+        sourceName: c.polyhaven ? 'Poly Haven' : 'Nhà mẫu online',
+        sourceUrl: sourceUrlOf(c),
+        license: 'cc0',
+        attribution: c.polyhaven ? 'Poly Haven — polyhaven.com (CC0)' : null,
+        clientId: null,
+      })
+      if (c.polyhaven)
+        for (const map of ['color', 'normal', 'rough'] as const) {
+          const f = join(dir, c.key, `${map}.jpg`)
+          if (existsSync(f)) m = await saveTexture(ctx, m, map, readFileSync(f), `${c.key}-${map}.jpg`, null)
+        }
+      if (c.generated) for (const [map, buf] of await tileTextures(c.generated)) m = await saveTexture(ctx, m, map, buf, `${c.key}-${map}.png`, null)
+      m = ctx.repos.materials.update(m.id, { status: 'ready', approvedBy: adminId, approvedAt: new Date().toISOString() })!
+    }
+    out[c.key] = m.id
+  }
+  return out
+}
+
+/** Hướng nhà mẫu (độ, hướng Bắc so với trục −y) để nắng chiếu đẹp qua cửa sổ chính. */
+const NORTH: Record<string, number> = { 'can-ho-a2': 225, 'nha-pho-a1': 180, 'biet-thu-b2': 160, 'nha-vuon-c1': 200 }
+
+/** Gán vật liệu mặc định theo công năng phòng + cửa, bậc thang, mặt ngoài; đặt hướng nhà (FR-13.11, 13.12). */
+export const withFinishes = (doc: HouseDocument, mats: Record<string, string>, slug?: string): HouseDocument => ({
+  ...doc,
+  floors: doc.floors.map((f) => ({
+    ...f,
+    rooms: f.rooms.map((r) => {
+      const d = DEFAULT_FINISH[r.function] ?? DEFAULT_FINISH.other
+      return { ...r, finish: { floor: mats[d.floor], wall: mats[d.wall], ceiling: mats[d.ceiling] } }
+    }),
+  })),
+  finishes: { door: mats[DEFAULT_SHARED_FINISH.door], stair: mats[DEFAULT_SHARED_FINISH.stair], facade: mats['vua-trang'] },
+  lighting: { ...doc.lighting, northDeg: (slug ? NORTH[slug] : undefined) ?? 180, hour: 9 },
+})
 
 export interface SeedResult {
   adminId: string
@@ -96,6 +167,7 @@ export const seedDemo = async (ctx: Ctx, opts: { adminEmail: string; adminPasswo
   })
 
   const actor: AuthUser = { id: admin.id, name: admin.name, email: admin.email, role: 'admin', clientId: null }
+  const mats = await seedMaterials(ctx, admin.id)
   const houseIds: string[] = []
   const demos = demoHouses(libIds, sizes)
   for (const [i, d] of demos.entries()) {
@@ -104,7 +176,7 @@ export const seedDemo = async (ctx: Ctx, opts: { adminEmail: string; adminPasswo
       bedrooms: d.bedrooms, bathrooms: d.bathrooms, description: d.description, sortOrder: i,
     })
     const cover = await storePng(ctx, coverSvg(d.document, d.name, color), `${d.slug}-cover.png`, 'cover', project.id)
-    const v = ctx.repos.versions.create(house.id, 1, { ...d.document, coverFileId: cover.id })
+    const v = ctx.repos.versions.create(house.id, 1, { ...withFinishes(d.document, mats, d.slug), coverFileId: cover.id })
     submit(ctx, v.id, actor)
     review(ctx, v.id, actor, { decision: 'approved', note: 'Dữ liệu mẫu — duyệt nội bộ khi khởi tạo hệ thống' }, { evidenceFileId: null })
     publish(ctx, v.id, actor)
@@ -122,7 +194,7 @@ export const seedDemo = async (ctx: Ctx, opts: { adminEmail: string; adminPasswo
  * Cập nhật bố cục nhà mẫu đã phát hành theo `demoHouses` hiện tại (phiên bản mới → gửi → duyệt → phát hành).
  * Giữ ảnh đại diện; bỏ điểm nhìn cũ (id tầng đổi). Bỏ qua mẫu nhà đang có phiên bản mở.
  */
-export const refreshDemo = (ctx: Ctx, slug = 'sunrise-garden') => {
+export const refreshDemo = async (ctx: Ctx, slug = 'sunrise-garden') => {
   const project = ctx.repos.projects.bySlug(slug)
   if (!project) throw new Error(`Chưa có dự án mẫu /v/${slug} — chạy seed trước`)
   const admin = ctx.repos.users.list().find((u) => u.role === 'admin' && u.status === 'active')
@@ -135,15 +207,16 @@ export const refreshDemo = (ctx: Ctx, slug = 'sunrise-garden') => {
     libIds[key] = it.id
     sizes[key] = it.sizeMm
   }
+  const mats = await seedMaterials(ctx, admin.id)
   const done: string[] = []
   for (const d of demoHouses(libIds, sizes)) {
     const house = ctx.repos.houses.bySlug(project.id, d.slug)
     if (!house || ctx.repos.versions.open(house.id)) continue
     const latest = ctx.repos.versions.latest(house.id)!
     const cover = (JSON.parse(latest.document) as HouseDocument).coverFileId
-    const v = ctx.repos.versions.create(house.id, latest.number + 1, { ...d.document, coverFileId: cover })
+    const v = ctx.repos.versions.create(house.id, latest.number + 1, { ...withFinishes(d.document, mats, d.slug), coverFileId: cover })
     submit(ctx, v.id, actor)
-    review(ctx, v.id, actor, { decision: 'approved', note: 'Cập nhật bố cục mẫu: thêm cửa, không gian mở, cầu thang' }, { evidenceFileId: null })
+    review(ctx, v.id, actor, { decision: 'approved', note: 'Cập nhật nhà mẫu: bố cục, vật liệu, ánh sáng' }, { evidenceFileId: null })
     publish(ctx, v.id, actor)
     done.push(`${d.slug} → phiên bản ${v.number}`)
   }
@@ -158,7 +231,7 @@ if (import.meta.filename === process.argv[1]) {
   if (!cfg.seedAdminEmail || !cfg.seedAdminPassword) throw new Error('Cần SEED_ADMIN_EMAIL và SEED_ADMIN_PASSWORD')
   const { ctx, close } = await buildApp(cfg, { logger: false })
   if (process.argv.includes('--refresh-demo')) {
-    console.log('Đã cập nhật nhà mẫu:', refreshDemo(ctx).join(' · ') || 'không có (đang có phiên bản mở?)')
+    console.log('Đã cập nhật nhà mẫu:', (await refreshDemo(ctx)).join(' · ') || 'không có (đang có phiên bản mở?)')
   } else {
     const r = await seedDemo(ctx, { adminEmail: cfg.seedAdminEmail, adminPassword: cfg.seedAdminPassword })
     console.log(`Đã seed dự án /v/${r.projectSlug} (${r.houseIds.length} mẫu nhà). Đăng nhập studio: ${cfg.seedAdminEmail}`)

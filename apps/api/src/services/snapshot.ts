@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto'
-import { libraryItemIds, stripUnderlay } from '@hd/core'
-import type { CheckContext, HouseDocument, ResolvedLibraryItem, ResolvedModel, Snapshot } from '@hd/core'
+import { libraryItemIds, materialIds, stripUnderlay } from '@hd/core'
+import type { CheckContext, HouseDocument, ResolvedLibraryItem, ResolvedMaterial, ResolvedModel, Snapshot } from '@hd/core'
+import { resolveMaterial } from './materials.ts'
 import { AppError } from '../lib/errors.ts'
 import { fileUrl } from '../repos/types.ts'
 import type { House } from '../repos/types.ts'
 import type { Ctx } from '../context.ts'
 
-const PUBLIC_KINDS = new Set(['cover', 'gallery_image', 'library_image', 'item_image', 'model_optimized', 'tour_image', 'tour_clip'])
+const PUBLIC_KINDS = new Set(['cover', 'gallery_image', 'library_image', 'item_image', 'model_optimized', 'tour_image', 'tour_clip', 'material_texture'])
 
 /** JSON chuẩn hoá (khoá sắp xếp) để băm. */
 export const canonicalJson = (v: unknown): string => {
@@ -39,6 +40,7 @@ export const checkContext = (ctx: Ctx, doc: HouseDocument): CheckContext => {
     models: Object.fromEntries([...ms.values()].map((m) => [m.id, { status: m.status, report: m.report }])),
     libraryModels: Object.fromEntries([...lib.values()].map((i) => [i.id, i.modelAssetId])),
     libraryItems: Object.fromEntries([...lib.values()].map((i) => [i.id, { category: i.category, sizeMm: i.sizeMm }])),
+    materials: Object.fromEntries([...ctx.repos.materials.byIds(materialIds(doc)).values()].map((m) => [m.id, { name: m.name, status: m.status }])),
   }
 }
 
@@ -99,6 +101,10 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
     }
   }
 
+  // vật liệu (item 03): thông số + ảnh vân 2 cỡ; ảnh vào submission_files để công khai khi phát hành
+  const materials: Record<string, ResolvedMaterial> = {}
+  for (const m of ctx.repos.materials.byIds(materialIds(document)).values()) materials[m.id] = resolveMaterial(ctx, m, (k) => keys.push(k))
+
   const filesOut: Record<string, string> = {}
   for (const id of fileIds) {
     const f = fs.get(id)
@@ -120,7 +126,7 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
       landArea: house.landArea,
       features: house.features,
     },
-    resolved: { libraryItems, models, files: filesOut },
+    resolved: { libraryItems, models, files: filesOut, materials },
   }
   return { snapshot, storageKeys: [...new Set(keys)], hash: hashSnapshot(snapshot) }
 }

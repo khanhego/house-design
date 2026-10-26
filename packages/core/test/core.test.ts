@@ -290,3 +290,20 @@ describe('CR-3 — giá, chương', () => {
     expect(guessChapter('Cảnh 7')).toBeUndefined()
   })
 })
+
+describe('vật liệu hoàn thiện (item 03)', async () => {
+  const { materialIds, submitChecks, emptyDocument: empty, floorFromRects: rect, DEFAULT_FINISH } = await import('../src/index.ts')
+  it('materialIds gom sàn / tường / trần + dùng chung; vật liệu nháp / ngừng dùng chặn gửi duyệt', () => {
+    const f = rect({ name: 'T1', order: 1, elevation: 0, rooms: [{ name: 'Khách', function: 'living', rect: [0, 0, 4000, 4000] }] })
+    f.rooms[0].finish = { floor: 'mat_go', wall: 'mat_son' }
+    const d = { ...empty(), floors: [f], finishes: { door: 'mat_cua' } }
+    expect(materialIds(d).sort()).toEqual(['mat_cua', 'mat_go', 'mat_son'])
+    const ctx = { models: {}, libraryModels: {}, materials: { mat_go: { name: 'Gỗ', status: 'ready' as const }, mat_son: { name: 'Sơn', status: 'draft' as const } } }
+    const blocks = submitChecks(d, ctx).filter((c) => c.code === 'MATERIAL_NOT_READY')
+    expect(blocks.map((c) => c.objectId).sort()).toEqual(['mat_cua', 'mat_son'])
+    expect(blocks.every((c) => c.level === 'block')).toBe(true)
+  })
+  it('mọi công năng phòng có vật liệu mặc định', () => {
+    for (const v of Object.values(DEFAULT_FINISH)) expect(v.floor && v.wall && v.ceiling).toBeTruthy()
+  })
+})

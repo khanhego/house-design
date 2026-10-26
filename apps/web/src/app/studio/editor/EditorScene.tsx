@@ -11,6 +11,10 @@ import { FloorItems } from '../../../scene/Items.tsx'
 import { GlbModel } from '../../../scene/GlbModel.tsx'
 import { M } from '../../../scene/units.ts'
 import type { LibraryRow, ModelOut } from '../../types.ts'
+import { SurfaceContext, useSurfaceKit } from '../../../scene/surfaces.ts'
+import { sunFor } from '../../../scene/sun.ts'
+import { useResolvedMaterials } from '../materialsData.ts'
+import { useEditor } from './store.ts'
 
 /** Mô hình được tham chiếu trong tài liệu (tầng, ngoại thất, cả nhà, node đồ). */
 export const modelIdsOf = (doc: HouseDocument) => {
@@ -26,6 +30,9 @@ export const modelIdsOf = (doc: HouseDocument) => {
 
 /** Dữ liệu đã giải (đồ thư viện, URL mô hình) cho cảnh 3D trong trình dựng. */
 export const useResolved = (doc: HouseDocument | null) => {
+  // vật liệu kho chung + của khách dự án (item 03) — xem trước bằng cùng bộ dựng hình của trang xem
+  const clientId = useEditor((s) => s.clientId)
+  const mats = useResolvedMaterials(clientId)
   const lib = useQuery({ queryKey: ['library', '', ''], queryFn: () => api<{ items: LibraryRow[] }>('GET', 'library/items?q=&category=') })
   const ids = doc ? modelIdsOf(doc) : []
   const models = useQueries({
@@ -51,9 +58,9 @@ export const useResolved = (doc: HouseDocument | null) => {
     }
     const ms: Record<string, ResolvedModel> = {}
     for (const [id, m] of Object.entries(modelMap)) if (m.status === 'ready' && m.url && m.report) ms[id] = { url: m.url, bbox: m.report.bbox, report: m.report }
-    return { libraryItems, models: ms, files: {} }
-  }, [lib.data, modelMap])
-  return { resolved, models: modelMap, library: lib.data?.items ?? [] }
+    return { libraryItems, models: ms, files: {}, materials: mats.resolved }
+  }, [lib.data, modelMap, mats.resolved])
+  return { resolved, models: modelMap, library: lib.data?.items ?? [], materials: mats.rows }
 }
 
 const CamExport = ({ camRef, targetRef }: { camRef: React.RefObject<THREE.Camera | null>; targetRef: React.RefObject<THREE.Vector3> }) => {
@@ -83,6 +90,11 @@ export interface EditorSceneProps {
   targetRef?: React.RefObject<THREE.Vector3>
   showAllFloors?: boolean
   night?: boolean
+  /** item 03 — tab Vật liệu: xem tường tầng đang dựng thấp / tự cắt / đầy đủ; tô phòng đang chọn */
+  wallMode?: 'auto' | 'low' | 'full'
+  selectedRoomId?: string | null
+  /** bấm sàn một phòng → chọn phòng đó */
+  onRoomPick?: (roomId: string) => void
 }
 
 /** Cảnh 3D của trình dựng (tab Mô hình, Đồ, Điểm nhìn) — dùng lại thành phần của trang xem. */
@@ -103,11 +115,17 @@ export const EditorScene = (p: EditorSceneProps) => {
     return (fid: string | null) => (fid ? floors.find((f) => f.id === fid)?.modelRef?.modelAssetId : p.doc.wholeModel?.modelAssetId ?? p.doc.exterior?.modelRef?.modelAssetId)
   }, [floors, p.doc])
 
+  const surfaces = useSurfaceKit(p.resolved.materials, 'full')
+  // nắng theo hướng nhà + giờ của mẫu nhà (item 03) — xem trước như trang xem
+  const sun = sunFor(p.doc.lighting.northDeg, p.doc.lighting.hour)
   return (
     <Canvas shadows camera={{ position: [cx + span * 0.8, M(floor.elevation) + span, cz + span * 0.9], fov: 45, near: 0.05, far: 500 }} gl={{ preserveDrawingBuffer: true }} onPointerMissed={() => p.onSelectItem?.(null)}>
+     <SurfaceContext.Provider value={surfaces}>
       <color attach="background" args={[p.night ? '#1a1e28' : '#ebe7e0']} />
-      <hemisphereLight args={['#fffaf0', '#b9ab98', p.night ? 0.3 : 1.1]} />
-      <directionalLight position={[cx + span, span * 1.4, cz - span]} intensity={p.night ? 0.3 : 2} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-span} shadow-camera-right={span} shadow-camera-top={span} shadow-camera-bottom={-span} />
+      <hemisphereLight args={['#fffaf0', '#b9ab98', p.night ? 0.3 : 0.75]} />
+      <directionalLight position={[cx + sun.dir[0] * span * 1.6, Math.max(1.5, sun.dir[1] * span * 1.6), cz + sun.dir[2] * span * 1.6]} intensity={p.night ? 0.3 : 0.5 + 2 * sun.strength} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-span} shadow-camera-right={span} shadow-camera-top={span} shadow-camera-bottom={-span}>
+        <object3D attach="target" position={[cx, 0, cz]} />
+      </directionalLight>
       <OrbitControls makeDefault target={[cx, M(floor.elevation), cz]} maxPolarAngle={Math.PI * 0.49} />
       <CamExport camRef={p.camRef ?? camLocal} targetRef={p.targetRef ?? tgtLocal} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, M(floor.elevation) + 0.001, cz]} onClick={(e) => p.onFloorPoint && (e.stopPropagation(), p.onFloorPoint([Math.round(e.point.x * 1000), Math.round(e.point.z * 1000)]))}>
@@ -122,7 +140,7 @@ export const EditorScene = (p: EditorSceneProps) => {
         const hasModel = !!f.modelRef && !!p.resolved.models[f.modelRef.modelAssetId]
         return (
           <group key={f.id}>
-            <FloorGroup floor={f} rise={f.height} showWalls={!hasModel && !p.doc.wholeModel} wallMode={f.id === floor.id ? 'low' : 'full'} target={target} selectedRoomId={null} onRoomClick={p.onFloorPoint ? (_r, pt) => p.onFloorPoint!([Math.round(pt.x * 1000), Math.round(pt.z * 1000)]) : undefined} />
+            <FloorGroup floor={f} rise={f.height} showWalls={!hasModel && !p.doc.wholeModel} wallMode={f.id === floor.id ? (p.wallMode ?? 'low') : 'full'} target={target} selectedRoomId={p.selectedRoomId ?? null} finishes={p.doc.finishes} onRoomClick={p.onFloorPoint || p.onRoomPick ? (r, pt) => (p.onRoomPick?.(r), p.onFloorPoint?.([Math.round(pt.x * 1000), Math.round(pt.z * 1000)])) : undefined} />
             {f.modelRef && p.resolved.models[f.modelRef.modelAssetId] && (
               <Suspense fallback={null}>
                 {p.align && f.id === floor.id && p.align.ref.modelAssetId === f.modelRef.modelAssetId ? (
@@ -148,6 +166,7 @@ export const EditorScene = (p: EditorSceneProps) => {
           </Suspense>
         )
       })}
+     </SurfaceContext.Provider>
     </Canvas>
   )
 }
