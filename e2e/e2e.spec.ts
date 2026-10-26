@@ -192,6 +192,7 @@ test('E2E-03: tour ảnh thật — tải ảnh, điểm đi tiếp, duyệt, ph
 })
 
 test('E2E-04: đi bộ trong nhà bằng bộ vật lý — bấm sàn đi sang phòng khác, tự lên cầu thang sang tầng 2 (DEC-53)', async ({ page }) => {
+  test.setTimeout(240_000) // máy CI không có GPU: khung hình chậm, đi bộ theo thời gian thật
   const errors = watch(page)
   await page.goto('/v/sunrise-garden/biet-thu-b2?debug3d=1')
   await expect(page.locator('canvas')).toBeVisible({ timeout: 20_000 })
@@ -208,11 +209,11 @@ test('E2E-04: đi bộ trong nhà bằng bộ vật lý — bấm sàn đi sang 
   expect(s.z).toBeGreaterThan(4.3)
   // bấm sàn bếp ăn (sát bàn ăn) → tự đi tới chỗ đứng được gần nhất
   expect(await page.evaluate(() => (window as unknown as W).__hdWalkTo(9.5, 10.6, 0))).not.toBeNull()
-  await expect.poll(async () => { const p = await pos(); return Math.hypot(p.x - 9.5, p.z - 10.6) }, { timeout: 30_000 }).toBeLessThan(1)
+  await expect.poll(async () => { const p = await pos(); return Math.hypot(p.x - 9.5, p.z - 10.6) }, { timeout: 60_000 }).toBeLessThan(1)
   await expect(page.locator('.room-chips button.active', { hasText: 'Bếp & ăn' }).first()).toBeVisible({ timeout: 5_000 })
   // bấm sàn phòng sinh hoạt tầng 2 → đi lên cầu thang chữ U, tầng 2 tự được chọn
   expect(await page.evaluate(() => (window as unknown as W).__hdWalkTo(3, 10, 3.8))).not.toBeNull()
-  await expect.poll(async () => (await pos()).y, { timeout: 60_000 }).toBeGreaterThan(3.7)
+  await expect.poll(async () => (await pos()).y, { timeout: 120_000 }).toBeGreaterThan(3.7)
   await expect(page.locator('.floor-list button.active', { hasText: 'Tầng 2' }).first()).toBeVisible({ timeout: 10_000 })
   expect(errors).toEqual([])
 })

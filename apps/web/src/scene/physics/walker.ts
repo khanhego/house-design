@@ -129,7 +129,19 @@ export class Walker {
    * bị chặn gần ô cửa thì kéo hướng đi vào giữa cửa. Trả quãng đường ngang đã đi (m).
    */
   move(vel: { x: number; z: number }, dt: number): number {
-    dt = Math.min(dt, 0.05)
+    // khung hình chậm (máy yếu, tab vừa quay lại): chia thành các bước ≤ 1/30 s để vẫn đi đúng tốc độ thật,
+    // tối đa 0,25 s một lần (tránh "nhảy cóc" sau khi tab bị treo lâu)
+    dt = Math.min(dt, 0.25)
+    if (dt > 1 / 30 + 1e-6) {
+      const n = Math.ceil(dt / (1 / 30))
+      let got = 0
+      for (let i = 0; i < n; i++) got += this.step(vel, dt / n)
+      return got
+    }
+    return this.step(vel, dt)
+  }
+
+  private step(vel: { x: number; z: number }, dt: number): number {
     // đang chạm đất: không thêm thành phần đi xuống (bám sàn đã có snap-to-ground) — leo dốc không bị chậm
     this.vy = this.grounded ? 0 : Math.max(-20, this.vy - GRAVITY * dt)
     const want: V3 = { x: vel.x * dt, y: this.vy * dt, z: vel.z * dt }
