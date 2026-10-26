@@ -14,7 +14,7 @@
 ## Tiến độ
 | Gate | Trạng thái | Ngày | Người duyệt | Ghi chú |
 |:---:|:---:|---|---|---|
-| G1 Yêu cầu | ▶ | | | SRS v0.1 Draft — chờ user chốt |
+| G1 Yêu cầu | ✅ | 2026-10-26 | khanhtt | SRS v1.0 — "Code đi"; Q-R1…R4 chốt |
 | G2 Thiết kế | ⬜ | | | |
 | G3 Build | ⬜ | | | |
 | G4 Kiểm thử | ⬜ | | | |
@@ -23,7 +23,7 @@
 ## NOW
 | Owner tiếp | Việc tiếp | Skill |
 |---|---|---|
-| user | Duyệt G1 SRS `01-srs.md` + trả lời Q-R1…Q-R4 | ai-po-write-srs |
+| Architect | Tech spec `02` (lát R1 trước) | ai-architect-write-spec |
 
 ## Decisions
 | ID | Chủ đề | Quyết định | Lý do | Người | Ngày |
@@ -31,6 +31,10 @@
 | DEC-R1 | "Đồ thật" là gì | Cả hai: kho đồ chuẩn chân thực (đội mình) làm mặc định + thay được bằng sản phẩm thật của khách | Trả lời làm rõ | khanhtt | 2026-10-26 |
 | DEC-R2 | Phạm vi "cảm giác nhà thật" | Đồ + vật liệu (tường, sàn, trần, cửa) + ánh sáng; đồ trang trí nhỏ để sau | Trả lời làm rõ | khanhtt | 2026-10-26 |
 | DEC-R3 | Nguồn đồ 3D | Kho miễn phí có giấy phép thương mại + AI tạo từ ảnh sản phẩm + file của khách; chưa mua trên chợ mô hình | Trả lời làm rõ | khanhtt | 2026-10-26 |
+| DEC-R5 | Q-R1 AI tạo 3D | Chưa làm ở lát đầu; chọn dịch vụ (Hunyuan3D tự chạy / Meshy, Tripo trả phí) trước lát R5 | user chọn | khanhtt | 2026-10-26 |
+| DEC-R6 | Q-R2 SketchUp | Không nhận `.skp`; khách xuất GLB/FBX/OBJ theo hướng dẫn | user chọn | khanhtt | 2026-10-26 |
+| DEC-R7 | Q-R3 kho chuẩn | 60 món · 30 vật liệu · 2 bộ đồ (Hiện đại, Tối giản) | user chọn | khanhtt | 2026-10-26 |
+| DEC-R8 | Q-R4 khách gửi file | Cổng tải lên cho khách (FR-13.19 nâng lên M, lát R4) | user chọn | khanhtt | 2026-10-26 |
 | DEC-R4 | Điện thoại / Zalo | Tải dần: bản nhẹ trước (giữ NFR-01), bản đầy đủ tải sau | Trả lời làm rõ | khanhtt | 2026-10-26 |
 
 ## Lịch sử

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Item | `03-realistic-furniture` · lane feature · quy mô L |
-| Phiên bản | 0.1 — Draft, chờ G1 |
+| Phiên bản | 1.0 — Approved (G1 ✅ 2026-10-26, user: "Code đi"); Q-R1…Q-R4 đã chốt (DEC-R5…R8) · 0.1 — Draft |
 | Liên quan SRS hệ thống | Sẽ thành CR-3 của `docs/ai/system/SRS.md` sau G1: thêm module **M13 Đồ thật & nhà chân thực**; sửa FR-05.01, FR-05.05, FR-06.08, BR-07, NFR-01/02 (chi tiết §5.2) |
 | Nguồn | Yêu cầu user 2026-10-26: "Mở rộng tính năng sa hình. Giờ t muốn chèn đồ thật, thay vì mô hình vào từng thiết kế, cảm giác người dùng đang đi trong 1 ngôi nhà thật." · Trả lời làm rõ cùng ngày (DEC-R1…R4) · Khảo sát nguồn đồ 3D 2026-10-26 (§11) |
 | Owner | khanhtt |
@@ -24,7 +24,11 @@
 >
 >   Mỗi món bắt buộc có nguồn và giấy phép, thiếu thì không cho phát hành.
 > - Trên điện thoại và trong Zalo, trình xem **tải dần** (DEC-R4): bản nhẹ hiện trước, vẫn giữ mốc hiện hình ≤ 5 giây và ≤ 15 MB lần đầu; đồ và vật liệu chi tiết của phòng đang xem tải sau.
-> - **Cần chốt trước G2:** Q-R1 dịch vụ AI tạo 3D · Q-R2 có nhận file SketchUp `.skp` trực tiếp không · Q-R3 quy mô kho đồ chuẩn ban đầu (đề xuất 60 món).
+> - **Đã chốt:**
+>   - AI tạo 3D để tới lát R5 mới chọn dịch vụ;
+>   - khách xuất file GLB/FBX/OBJ, không nhận `.skp`;
+>   - kho chuẩn ban đầu 60 món, 30 vật liệu, 2 bộ đồ;
+>   - **có cổng tải lên cho khách** (FR-13.19).
 
 ---
 
@@ -81,7 +85,7 @@ Như SRS hệ thống §3. Vai trò thêm hoặc mở rộng:
 |---|---|
 | Người dựng (đội mình) | Chuẩn bị kho đồ chuẩn và vật liệu; nhập sản phẩm của khách; chạy AI tạo mô hình từ ảnh và chỉnh lại; thay đồ, gán vật liệu, đặt ánh sáng cho từng mẫu nhà |
 | QTV | Duyệt giấy phép trước khi món/vật liệu được dùng; quản lý bộ đồ theo phong cách |
-| Khách hàng (bên bán) | Cung cấp file 3D hoặc ảnh sản phẩm của họ (P1 gửi ngoài hệ thống, xem Q-R4); duyệt mẫu nhà ở C3 như hiện có |
+| Khách hàng (bên bán) | Tải file 3D hoặc ảnh sản phẩm của họ lên cổng khách (FR-13.19); theo dõi trạng thái; duyệt mẫu nhà ở C3 như hiện có |
 | Người xem | Đi trong nhà chân thực; bấm vào đồ xem thông tin sản phẩm |
 
 ## 4. Quy trình TO-BE
@@ -108,7 +112,7 @@ Như SRS hệ thống §3. Vai trò thêm hoặc mở rộng:
 
 | Bước | Ai | Làm gì | Hệ thống |
 |---|---|---|---|
-| B1 | Khách hàng | Gửi file 3D hoặc ảnh sản phẩm, kèm tên, mã, kích thước | P1 gửi ngoài hệ thống (Zalo, email, ổ đĩa); Q-R4 có làm cổng tải lên cho khách không |
+| B1 | Khách hàng | Ở cổng khách: tải file 3D (GLB/FBX/OBJ) hoặc 1–4 ảnh sản phẩm, kèm tên, mã, kích thước (FR-13.19) | Lưu thành **yêu cầu sản phẩm** của khách; báo cho đội dựng |
 | B2 | Người dựng | Làm như A1–A5, chọn phạm vi "Sản phẩm của <khách>"; giấy phép "Độc quyền của khách" | Món chỉ hiện khi dựng nhà thuộc dự án của khách đó |
 
 **C. Làm một mẫu nhà chân thực**
@@ -185,7 +189,7 @@ flowchart LR
 | FR-13.16 | Kiểm gửi duyệt phải tính ngân sách hiệu năng theo **bản người xem thật sự tải**: bản nhẹ cho điện thoại, bản đầy đủ cho máy tính (BR-07 mở rộng). Mẫu nhà còn món chưa duyệt giấy phép, hoặc món thuộc khách khác, thì không gửi duyệt được | M | FR-13.05, BR-R3 |
 | FR-13.17 | Hệ thống phải hiện **ghi công** cho món và vật liệu có giấy phép yêu cầu (vd. CC BY): trong bảng chi tiết đồ và trang "Nguồn đồ & vật liệu" của mẫu nhà | S | BR-R1 |
 | FR-13.18 | 4 nhà mẫu demo phải được nâng lên bản chân thực (đồ, vật liệu, ánh sáng) để làm mẫu bán hàng và đo mục tiêu §2 | M | §2 |
-| FR-13.19 | Khách hàng (người duyệt) tải được file 3D hoặc ảnh sản phẩm của họ qua cổng khách (C-portal) để đội dựng nhập | C | B1, Q-R4 |
+| FR-13.19 | Khách hàng (người duyệt) phải tải được file 3D (GLB/FBX/OBJ) hoặc 1–4 ảnh sản phẩm của họ qua cổng khách, kèm tên, mã, kích thước; thấy trạng thái (Đã gửi / Đang xử lý / Đã vào thư viện / Cần bổ sung); đội dựng nhận yêu cầu và nhập vào thư viện với phạm vi của khách đó | M | B1, DEC-R8 |
 
 ### 5.2 Sửa FR hiện có (giữ ID)
 
@@ -206,7 +210,8 @@ flowchart LR
 | Quản lý bộ đồ theo phong cách | ✓ | — | — | — |
 | Thay đồ, gán vật liệu, đặt ánh sáng trong mẫu nhà | ✓ | ✓ | — | — |
 | Xem món thuộc khách A | ✓ | ✓ | chỉ khách A (ở C3) | khi đã phát hành |
-| Tải file/ảnh sản phẩm qua cổng (FR-13.19, C) | — | — | ✓ (dự án của mình) | — |
+| Tải file/ảnh sản phẩm qua cổng (FR-13.19) | — | — | ✓ (khách của mình) | — |
+| Xem, xử lý yêu cầu sản phẩm của khách | ✓ | ✓ | trạng thái của mình | — |
 | Chọn chất lượng hiển thị | — | — | ✓ | ✓ |
 
 ## 6. Use case
@@ -367,10 +372,10 @@ Trạng thái:
 
 | ID | Câu hỏi | Hỏi ai | Chặn G1? |
 |---|---|---|:-:|
-| Q-R1 | Dịch vụ AI tạo 3D: (a) tự chạy Hunyuan3D trên máy GPU của mình (không phí mỗi món, cần máy GPU) · (b) dùng dịch vụ trả phí Meshy/Tripo gói thương mại (nhanh, trả theo món/tháng) · (c) chưa làm AI ở lát đầu, chỉ file khách + kho miễn phí. **Đề xuất: (c) ở lát đầu, chọn (a)/(b) trước lát R5** | user | Không (chặn trước G2 lát R5) |
-| Q-R2 | Có nhận file SketchUp `.skp` trực tiếp không (cần công cụ chuyển đổi riêng), hay yêu cầu khách xuất GLB/FBX/OBJ? **Đề xuất: yêu cầu xuất GLB/FBX/OBJ, có hướng dẫn** | user | Không |
-| Q-R3 | Quy mô kho đồ chuẩn ban đầu. **Đề xuất: 60 món** phủ 4 loại nhà (phòng khách, bếp ăn, phòng ngủ, WC, làm việc, thờ) + 30 vật liệu + 2 bộ đồ (Hiện đại, Tối giản) | user | Không |
-| Q-R4 | P1 khách gửi file ngoài hệ thống (Zalo/email), hay làm luôn cổng tải lên cho khách (FR-13.19)? **Đề xuất: ngoài hệ thống ở P1** | user | Không |
+| Q-R1 | Dịch vụ AI tạo 3D: (a) tự chạy Hunyuan3D trên máy GPU của mình (không phí mỗi món, cần máy GPU) · (b) dùng dịch vụ trả phí Meshy/Tripo gói thương mại (nhanh, trả theo món/tháng) · (c) chưa làm AI ở lát đầu, chỉ file khách + kho miễn phí. → **(c)**, chọn (a)/(b) trước lát R5 (DEC-R5) | user | Đã chốt |
+| Q-R2 | Có nhận file SketchUp `.skp` trực tiếp không (cần công cụ chuyển đổi riêng), hay yêu cầu khách xuất GLB/FBX/OBJ? → **Yêu cầu khách xuất GLB/FBX/OBJ**, có hướng dẫn (DEC-R6) | user | Đã chốt |
+| Q-R3 | Quy mô kho đồ chuẩn ban đầu. **Đề xuất: 60 món** phủ 4 loại nhà (phòng khách, bếp ăn, phòng ngủ, WC, làm việc, thờ) + 30 vật liệu + 2 bộ đồ (Hiện đại, Tối giản) → **Chốt** (DEC-R7) | user | Đã chốt |
+| Q-R4 | ~~Khách gửi file ngoài hệ thống hay qua cổng?~~ → **Cổng tải lên cho khách** (DEC-R8) | user | Đã chốt |
 
 ## 13. Nghiệm thu & lộ trình
 
@@ -396,8 +401,8 @@ Trạng thái:
 | R1 | Vật liệu + ánh sáng tự nhiên + tải dần nền tảng (nhà trông thật hơn ngay cả khi đồ vẫn là khối) | FR-13.10–13.15 |
 | R2 | Mô hình chân thực cho món: nhập file, chuẩn hoá, tối ưu, bản nhẹ, nguồn & giấy phép, duyệt, phạm vi | FR-13.01–13.06, FR-13.16–13.17 |
 | R3 | Kho đồ chuẩn (Q-R3) + bộ đồ + thay đồ; nâng 4 nhà mẫu | FR-13.08–13.09, FR-13.18 |
-| R4 | Sản phẩm của khách (luồng B), cổng tải lên nếu Q-R4 = có | FR-13.06, FR-13.19 |
-| R5 | AI tạo mô hình từ ảnh (Q-R1) | FR-13.07 |
+| R4 | Sản phẩm của khách (luồng B) + cổng tải lên cho khách | FR-13.06, FR-13.19 |
+| R5 | AI tạo mô hình từ ảnh — chọn dịch vụ trước khi làm (DEC-R5) | FR-13.07 |
 
 ## Phụ lục A — Truy vết
 
@@ -419,4 +424,4 @@ Trạng thái:
 - [x] NFR có con số và cách kiểm (§8)
 - [x] Màn hình có phác thảo và trạng thái (§10)
 - [x] AC có cách kiểm, lộ trình theo lát (§13)
-- [ ] User chốt: phạm vi + 4 câu hỏi mở Q-R1…Q-R4 (không chặn G1, có đề xuất)
+- [x] User chốt: "Code đi" + Q-R1…Q-R4 (2026-10-26)
