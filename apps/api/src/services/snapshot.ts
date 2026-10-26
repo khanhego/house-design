@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto'
 import { libraryItemIds, materialIds, stripUnderlay } from '@hd/core'
-import type { CheckContext, HouseDocument, ResolvedLibraryItem, ResolvedMaterial, ResolvedModel, Snapshot } from '@hd/core'
+import type { CheckContext, Credit, HouseDocument, ResolvedLibraryItem, ResolvedMaterial, ResolvedModel, Snapshot } from '@hd/core'
 import { resolveMaterial } from './materials.ts'
 import { AppError } from '../lib/errors.ts'
 import { fileUrl } from '../repos/types.ts'
-import type { House } from '../repos/types.ts'
+import type { House, LibraryItem, Material } from '../repos/types.ts'
 import type { Ctx } from '../context.ts'
 
 const PUBLIC_KINDS = new Set(['cover', 'gallery_image', 'library_image', 'item_image', 'model_optimized', 'tour_image', 'tour_clip', 'material_texture'])
@@ -30,17 +30,24 @@ const modelIdsOf = (doc: HouseDocument) => {
   return ids
 }
 
-/** Ngữ cảnh cho `submitChecks` (trạng thái + báo cáo mô hình, GLB của đồ thư viện). */
-export const checkContext = (ctx: Ctx, doc: HouseDocument): CheckContext => {
+/** Nguồn & giấy phép hiện cho người xem (FR-13.17). */
+export const creditOf = (x: Pick<LibraryItem | Material, 'sourceKind' | 'sourceName' | 'sourceUrl' | 'license' | 'attribution'>): Credit => ({
+  sourceKind: x.sourceKind, sourceName: x.sourceName, sourceUrl: x.sourceUrl, license: x.license, attribution: x.attribution,
+})
+
+/** Ngữ cảnh cho `submitChecks` (trạng thái + báo cáo mô hình, GLB của đồ thư viện). `clientId` = khách của dự án (BR-R3). */
+export const checkContext = (ctx: Ctx, doc: HouseDocument, clientId: string | null = null): CheckContext => {
   const lib = ctx.repos.library.byIds(libraryItemIds(doc))
   const ids = modelIdsOf(doc)
   for (const it of lib.values()) if (it.modelAssetId) ids.add(it.modelAssetId)
   const ms = ctx.repos.models.byIds([...ids])
   return {
-    models: Object.fromEntries([...ms.values()].map((m) => [m.id, { status: m.status, report: m.report }])),
+    models: Object.fromEntries([...ms.values()].map((m) => [m.id, { status: m.status, report: m.report, lightReport: m.lightReport }])),
     libraryModels: Object.fromEntries([...lib.values()].map((i) => [i.id, i.modelAssetId])),
     libraryItems: Object.fromEntries([...lib.values()].map((i) => [i.id, { category: i.category, sizeMm: i.sizeMm }])),
     materials: Object.fromEntries([...ctx.repos.materials.byIds(materialIds(doc)).values()].map((m) => [m.id, { name: m.name, status: m.status }])),
+    libraryStatus: Object.fromEntries([...lib.values()].map((i) => [i.id, { name: i.name, status: i.status, clientId: i.clientId }])),
+    clientId,
   }
 }
 
@@ -65,7 +72,7 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
   const modelIds = modelIdsOf(document)
   for (const it of lib.values()) if (it.modelAssetId) modelIds.add(it.modelAssetId)
   const ms = ctx.repos.models.byIds([...modelIds])
-  for (const m of ms.values()) if (m.optimizedFileId) fileIds.add(m.optimizedFileId)
+  for (const m of ms.values()) for (const id of [m.optimizedFileId, m.lightFileId]) if (id) fileIds.add(id)
 
   const fs = ctx.repos.files.byIds([...fileIds])
   const url = (id: string | null | undefined) => {
@@ -81,7 +88,11 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
   for (const m of ms.values()) {
     if (m.status !== 'ready' || !m.optimizedFileId || !m.report) continue
     const u = url(m.optimizedFileId)
-    if (u) models[m.id] = { url: u, bbox: m.report.bbox, report: m.report }
+    if (!u) continue
+    models[m.id] = { url: u, bbox: m.report.bbox, report: m.report }
+    // bản nhẹ của mô hình đồ (item 03 lát R2) — trình xem tải trước, chất lượng Đẹp tải tiếp bản đầy đủ
+    const lu = url(m.lightFileId)
+    if (lu && m.lightReport) Object.assign(models[m.id], { lightUrl: lu, lightReport: m.lightReport })
   }
 
   const libraryItems: Record<string, ResolvedLibraryItem> = {}
@@ -98,12 +109,17 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
       modelUrl: it.modelAssetId && models[it.modelAssetId] ? models[it.modelAssetId].url : null,
       modelAssetId: it.modelAssetId && models[it.modelAssetId] ? it.modelAssetId : null,
       fallbackShape: it.fallbackShape,
+      modelLightUrl: it.modelAssetId ? models[it.modelAssetId]?.lightUrl ?? null : null,
+      modelNormalized: !!(it.modelAssetId && ms.get(it.modelAssetId)?.normalize?.result),
+      productCode: it.productCode,
+      clientName: it.clientId ? ctx.repos.clients.get(it.clientId)?.name ?? null : null,
+      credit: creditOf(it),
     }
   }
 
   // vật liệu (item 03): thông số + ảnh vân 2 cỡ; ảnh vào submission_files để công khai khi phát hành
   const materials: Record<string, ResolvedMaterial> = {}
-  for (const m of ctx.repos.materials.byIds(materialIds(document)).values()) materials[m.id] = resolveMaterial(ctx, m, (k) => keys.push(k))
+  for (const m of ctx.repos.materials.byIds(materialIds(document)).values()) materials[m.id] = { ...resolveMaterial(ctx, m, (k) => keys.push(k)), credit: creditOf(m) }
 
   const filesOut: Record<string, string> = {}
   for (const id of fileIds) {
@@ -134,5 +150,5 @@ export const buildSnapshot = (ctx: Ctx, docJson: string, house: House): { snapsh
 /** Payload công khai bỏ `report` của mô hình (N-07). */
 export const publicResolved = (s: Snapshot): Snapshot['resolved'] => ({
   ...s.resolved,
-  models: Object.fromEntries(Object.entries(s.resolved.models).map(([k, m]) => [k, { url: m.url, bbox: m.bbox }])),
+  models: Object.fromEntries(Object.entries(s.resolved.models).map(([k, m]) => [k, { url: m.url, bbox: m.bbox, ...(m.lightUrl ? { lightUrl: m.lightUrl } : {}) }])),
 })

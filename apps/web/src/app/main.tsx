@@ -42,7 +42,7 @@ const App = () => (
       <Route path="/studio" element={<Navigate to="/studio/projects" replace />} />
       <Route path="/studio/projects" element={<Guard area="studio">{(me) => <StudioLayout me={me}><ProjectsPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/projects/:id" element={<Guard area="studio">{(me) => <StudioLayout me={me}><ProjectDetailPage me={me} /></StudioLayout>}</Guard>} />
-      <Route path="/studio/library" element={<Guard area="studio">{(me) => <StudioLayout me={me}><LibraryPage /></StudioLayout>}</Guard>} />
+      <Route path="/studio/library" element={<Guard area="studio">{(me) => <StudioLayout me={me}><LibraryPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/materials" element={<Guard area="studio">{(me) => <StudioLayout me={me}><MaterialsPage me={me} /></StudioLayout>}</Guard>} />
       <Route path="/studio/clients" element={<Guard area="studio" roles={['admin']}>{(me) => <StudioLayout me={me}><ClientsPage /></StudioLayout>}</Guard>} />
       <Route path="/studio/clients/:id" element={<Guard area="studio" roles={['admin']}>{(me) => <StudioLayout me={me}><ClientDetailPage /></StudioLayout>}</Guard>} />

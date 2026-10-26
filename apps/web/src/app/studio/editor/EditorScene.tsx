@@ -33,7 +33,8 @@ export const useResolved = (doc: HouseDocument | null) => {
   // vật liệu kho chung + của khách dự án (item 03) — xem trước bằng cùng bộ dựng hình của trang xem
   const clientId = useEditor((s) => s.clientId)
   const mats = useResolvedMaterials(clientId)
-  const lib = useQuery({ queryKey: ['library', '', ''], queryFn: () => api<{ items: LibraryRow[] }>('GET', 'library/items?q=&category=') })
+  // đồ kho chung + sản phẩm của khách dự án (item 03 lát R2, BR-R3)
+  const lib = useQuery({ queryKey: ['library', '', '', clientId ?? ''], queryFn: () => api<{ items: LibraryRow[] }>('GET', `library/items?q=&category=${clientId ? `&clientId=${clientId}` : ''}`) })
   const ids = doc ? modelIdsOf(doc) : []
   const models = useQueries({
     queries: ids.map((id) => ({
@@ -54,6 +55,8 @@ export const useResolved = (doc: HouseDocument | null) => {
         name: it.name, category: it.category as ResolvedLibraryItem['category'], sizeMm: it.sizeMm, material: it.material ?? undefined, brand: it.brand ?? undefined,
         description: it.description ?? undefined, imageUrls: it.imageUrls, variants: it.variants, modelUrl: it.model?.status === 'ready' ? it.model.url : null,
         modelAssetId: it.model?.status === 'ready' ? it.model.id : null, fallbackShape: (it.fallbackShape as ResolvedLibraryItem['fallbackShape']) ?? null,
+        modelLightUrl: it.model?.status === 'ready' ? it.model.lightUrl ?? null : null, modelNormalized: !!it.model?.normalized,
+        productCode: it.productCode, clientName: it.clientName,
       }
     }
     const ms: Record<string, ResolvedModel> = {}

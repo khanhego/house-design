@@ -120,9 +120,24 @@ export interface ModelAsset {
   report: ModelReport | null
   level: 'ok' | 'warn' | 'block' | null
   reasons: string[]
+  /** bản nhẹ (mô hình đồ thư viện, item 03 lát R2) */
+  lightFileId: string | null
+  lightReport: ModelReport | null
+  normalize: ModelNormalize | null
   createdBy: string | null
   createdAt: string
   updatedAt: string
+}
+
+export type ModelUnit = 'auto' | 'm' | 'cm' | 'mm' | 'in'
+export type ModelUpAxis = 'auto' | 'y' | 'z'
+
+/** Yêu cầu chuẩn hoá (lúc tải / xử lý lại) và kết quả (sau job) — item 03 lát R2, R2.2. */
+export interface ModelNormalize {
+  unit: ModelUnit
+  upAxis: ModelUpAxis
+  declaredMm: [number, number, number] | null
+  result?: { format: string; scale: number; unit: Exclude<ModelUnit, 'auto'>; upAxis: 'y' | 'z'; measuredMm: [number, number, number]; notes: string[] }
 }
 
 export interface LibraryItem {
@@ -137,6 +152,19 @@ export interface LibraryItem {
   modelAssetId: string | null
   fallbackShape: FallbackShape | null
   variants: Variant[]
+  productCode: string | null
+  sourceKind: MaterialSourceKind
+  sourceName: string | null
+  sourceUrl: string | null
+  license: MaterialLicense | null
+  attribution: string | null
+  /** null = kho chung; có = sản phẩm của khách đó (BR-R3) */
+  clientId: string | null
+  status: MaterialStatus
+  approvedBy: string | null
+  approvedAt: string | null
+  /** đã chọn co giãn mô hình theo khai báo khi lệch > 20% (BR-R4) */
+  sizeAccepted: boolean
   archived: boolean
   createdAt: string
   updatedAt: string

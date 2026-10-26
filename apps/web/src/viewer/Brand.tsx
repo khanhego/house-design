@@ -27,9 +27,10 @@ export const BrandMark = ({ b, compact = false }: { b: Branding; compact?: boole
     <span className="brand-name">{b.name}</span>
   )
 
-export const Disclaimer = ({ text, branding }: { text: string; branding: Branding }) => (
+export const Disclaimer = ({ text, branding, onCredits }: { text: string; branding: Branding; onCredits?: () => void }) => (
   <footer className="v-disclaimer">
     <span>{text}</span>
+    {onCredits && <button className="link-btn" onClick={onCredits}>Nguồn đồ & vật liệu</button>}
     {branding.showPoweredBy && <span className="powered">Nhà mẫu online</span>}
   </footer>
 )

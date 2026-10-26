@@ -1,5 +1,6 @@
 import type { PlacedItem, ResolvedLibraryItem } from '@hd/core'
 import { fmtInt } from '../i18n/vi.ts'
+import { creditLine } from './Credits.tsx'
 
 export interface ItemView {
   item: PlacedItem
@@ -47,8 +48,16 @@ export const ItemPanel = ({ view, variantId, onVariant, onClose }: {
             <dd>{view.brand}</dd>
           </div>
         )}
+        {view.lib?.productCode && (
+          <div>
+            <dt>Mã sản phẩm</dt>
+            <dd>{view.lib.productCode}</dd>
+          </div>
+        )}
       </dl>
+      {view.lib?.clientName && <p className="item-owner">Sản phẩm của {view.lib.clientName}</p>}
       {view.description && <p className="item-desc">{view.description}</p>}
+      {creditLine(view.lib?.credit) && <p className="item-credit">{creditLine(view.lib?.credit)}</p>}
       {variants.length > 1 && (
         <>
           <h4>Màu sắc / hoàn thiện</h4>

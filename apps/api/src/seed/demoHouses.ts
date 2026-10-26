@@ -43,7 +43,10 @@ const RAW: RawItem[] = [
   { key: 'shower', name: 'Cabin tắm kính', category: 'bath', sizeMm: [900, 2000, 900], material: 'Kính cường lực 8 mm', brand: null, description: 'Cabin vuông, sen cây.', fallbackShape: 'shower', variants: [{ id: 'chrome', name: 'Chrome', color: '#c9ccd0' }] },
 ]
 
-export const LIBRARY: (LibraryInput & { key: string })[] = RAW.map((i) => ({ ...i, imageFileIds: [], modelAssetId: null }))
+/** Khối dựng sẵn do đội làm: đội tự làm · CC0 · sẵn dùng (DEC-R18). */
+export const LIBRARY: (LibraryInput & { key: string })[] = RAW.map((i) => ({
+  ...i, imageFileIds: [], modelAssetId: null, sourceKind: 'in_house', sourceName: 'Nhà mẫu online', license: 'cc0', status: 'ready',
+}))
 
 type LibIds = Record<string, string>
 

@@ -371,3 +371,18 @@ body { background: var(--app-bg); }
 .compass svg { flex: none; }
 .ed-right .ins-field select, .ed-right .ins-field input[type='range'] { max-width: 100%; width: 100%; }
 .ed-right .compass .small { min-width: 0; }
+/* item 03 lát R2: thư viện đồ chân thực — khung xem 3D, số liệu 2 bản, lệch kích thước */
+.lib-card .lib-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.lib-card .lib-badges .badge { position: static; }
+.model-box { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fbfaf8; }
+.model-box h3 { margin: 0; }
+.model-ready { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.model-view { display: grid; gap: 8px; }
+.model-preview { aspect-ratio: 1; width: 100%; border-radius: 10px; overflow: hidden; background: #f4f2ee; border: 1px solid var(--line); }
+.model-info { display: grid; gap: 8px; min-width: 0; }
+.model-info p, .model-info ul { margin: 0; }
+.model-report td, .model-report th { padding: 6px 8px; }
+.size-notice { display: grid; gap: 8px; padding: 10px; border-radius: 8px; background: var(--warn-soft); }
+.size-notice p { margin: 0; }
+.size-notice.is-danger { background: #fbe9e6; }
+@media (max-width: 720px) { .model-ready { grid-template-columns: 1fr; } }

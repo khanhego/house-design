@@ -166,6 +166,15 @@
 .item-panel h3 { font-size: 18px; text-transform: none; letter-spacing: 0; color: var(--text); margin: 0; padding-right: 24px; }
 .item-img { width: 100%; border-radius: 10px; aspect-ratio: 4 / 3; object-fit: cover; }
 .item-desc { font-size: 14px; line-height: 1.55; margin: 0; }
+/* item 03 lát R2: sản phẩm của khách, ghi công (FR-06.08), trang Nguồn đồ & vật liệu (FR-13.17) */
+.item-owner { margin: 0; font-size: 13px; font-weight: 600; color: var(--brand, var(--text)); }
+.item-credit { margin: 0; font-size: 12px; color: var(--muted); }
+.link-btn { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; white-space: nowrap; }
+.modal-card.credits { max-width: 560px; width: 100%; max-height: min(80vh, 640px); grid-template-rows: auto auto 1fr auto; }
+.credits-list { overflow-y: auto; display: grid; gap: 10px; min-height: 0; }
+.credit-row { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line, #e6e1da); }
+.credit-row:last-child { border-bottom: 0; }
+.credit-row a { color: inherit; }
 .item-panel h4 { margin: 6px 0 0; font-size: 13px; color: var(--muted); font-weight: 500; }
 .specs { margin: 0; display: grid; gap: 6px; }
 .specs div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; border-bottom: 1px dashed var(--line); padding-bottom: 5px; }

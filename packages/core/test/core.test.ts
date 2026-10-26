@@ -307,3 +307,41 @@ describe('vật liệu hoàn thiện (item 03)', async () => {
     for (const v of Object.values(DEFAULT_FINISH)) expect(v.floor && v.wall && v.ceiling).toBeTruthy()
   })
 })
+
+describe('đồ chân thực (item 03 lát R2)', async () => {
+  const { itemLevel, sizeDeviation, BUDGET_DESKTOP } = await import('../src/index.ts')
+  const rep = (o: Partial<ModelReport>): ModelReport => ({ triangles: 0, drawCalls: 1, textureBytes: 0, fileBytes: 0, bbox: { min: [0, 0, 0], max: [1, 1, 1] }, nodeNames: [], ...o })
+  it('mức món theo BR-R2: Đạt / Cảnh báo / Chặn (gấp đôi)', () => {
+    expect(itemLevel(rep({ triangles: 50_000, fileBytes: 3 * 2 ** 20 }), 'full').level).toBe('ok')
+    expect(itemLevel(rep({ triangles: 80_000 }), 'full')).toMatchObject({ level: 'warn', reasons: [expect.stringContaining('80.000')] })
+    expect(itemLevel(rep({ triangles: 100_001 }), 'full').level).toBe('block')
+    expect(itemLevel(rep({ triangles: 4_000, fileBytes: 700 * 1024 }), 'light')).toMatchObject({ level: 'block', reasons: [expect.stringContaining('700 KB')] })
+  })
+  it('lệch kích thước theo trục lớn nhất (BR-R4)', () => {
+    expect(sizeDeviation([2200, 850, 900], [2260, 850, 900])).toBeCloseTo(2.73, 1)
+    expect(sizeDeviation([1500, 900, 850], [2000, 900, 850])).toBeCloseTo(33.3, 0)
+  })
+  it('ngân sách tầng hai bản: điện thoại tính bản nhẹ, máy tính tính bản đầy đủ (FR-13.16)', () => {
+    const d = doc()
+    d.floors[0].items = Array.from({ length: 40 }, (_, i) => ({ id: `itm_${i}`, source: { libraryItemId: 'lib_sofa' }, position: [1000, 1000] as [number, number], elevation: 0, rotation: 0 }))
+    const ctx = { models: { mdl_s: { status: 'ready' as const, report: rep({ triangles: 50_000, fileBytes: 3 * 2 ** 20 }), lightReport: rep({ triangles: 5_000, fileBytes: 300 * 1024 }) } }, libraryModels: { lib_sofa: 'mdl_s' } }
+    expect(budgetForFloor(d, d.floors[0], ctx, 'light').triangles).toBe(200_000)
+    expect(budgetForFloor(d, d.floors[0], ctx, 'full').triangles).toBe(2_000_000)
+    const checks = submitChecks(d, ctx).filter((c) => c.code.startsWith('BUDGET'))
+    expect(checks).toEqual([expect.objectContaining({ code: 'BUDGET_WARN', message: expect.stringContaining('bản máy tính') })])
+    expect(BUDGET_DESKTOP.block.triangles).toBe(3_000_000)
+  })
+  it('đồ nháp / ngừng dùng / của khách khác chặn gửi duyệt (FR-13.05, BR-R3)', () => {
+    const d = doc()
+    d.floors[0].items = ['lib_a', 'lib_b', 'lib_c', 'lib_d'].map((id, i) => ({ id: `itm_${i}`, source: { libraryItemId: id }, position: [1000, 1000] as [number, number], elevation: 0, rotation: 0 }))
+    const libraryStatus = {
+      lib_a: { name: 'Sofa', status: 'ready' as const, clientId: null },
+      lib_b: { name: 'Ghế', status: 'draft' as const, clientId: null },
+      lib_c: { name: 'Bàn', status: 'retired' as const, clientId: null },
+      lib_d: { name: 'Tủ An Phát', status: 'ready' as const, clientId: 'cli_a' },
+    }
+    const codes = (clientId: string | null) => submitChecks(d, { models: {}, libraryModels: {}, libraryStatus, clientId }).filter((c) => c.code.startsWith('ITEM_')).map((c) => `${c.code}:${c.objectId}`)
+    expect(codes('cli_b')).toEqual(['ITEM_NOT_READY:lib_b', 'ITEM_NOT_READY:lib_c', 'ITEM_OTHER_CLIENT:lib_d'])
+    expect(codes('cli_a')).toEqual(['ITEM_NOT_READY:lib_b', 'ITEM_NOT_READY:lib_c'])
+  })
+})

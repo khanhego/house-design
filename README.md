@@ -42,6 +42,9 @@ Kiểm tra: `npm run lint`, `npm test`, `npx playwright test`.
 
 Ảnh vân vật liệu chuẩn: [Poly Haven](https://polyhaven.com) (CC0), Powered by Poly Haven.
 
+Mô hình đồ: studio nhận GLB, glTF, FBX, OBJ hoặc `.zip` kèm ảnh texture. FBX và OBJ được chuyển bằng
+[assimp](https://github.com/assimp/assimp) (BSD-3-Clause) qua [assimpjs](https://github.com/kovacsv/assimpjs) (MIT).
+
 ## CI/CD
 
 `.github/workflows/ci-cd.yml`: mỗi lần đẩy lên `main` hoặc `dev`, chạy lint, unit (gồm mô phỏng đi bộ trên 4 nhà mẫu)

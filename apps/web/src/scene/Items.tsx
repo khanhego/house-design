@@ -1,9 +1,11 @@
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import type { Floor, PlacedItem, ResolvedLibraryItem } from '@hd/core'
 import { FurnitureModel } from './models.tsx'
+import type { Quality } from './surfaces.ts'
 import { deg, M } from './units.ts'
 
 export interface ItemInfoView {
@@ -39,18 +41,30 @@ const SelectionBox = ({ box }: { box: THREE.Box3 }) => {
   )
 }
 
-const LibraryGlb = ({ url, size, color }: { url: string; size: [number, number, number]; color?: string }) => {
+/**
+ * Mô hình đồ thư viện. Mô hình đã chuẩn hoá (item 03 lát R2: mét, giữa đáy) co giãn theo từng trục về đúng
+ * kích thước khai báo (BR-R4). Mô hình cũ: đặt đáy ở y = 0, tâm x/z ở 0, co đều nếu sai đơn vị rõ ràng.
+ */
+export const fitToSize = (obj: THREE.Object3D, sizeMm: [number, number, number], normalized: boolean) => {
+  const b = new THREE.Box3().setFromObject(obj)
+  const s = b.getSize(new THREE.Vector3())
+  if (normalized) {
+    const t = sizeMm.map(M)
+    obj.scale.set(s.x > 0 ? t[0] / s.x : 1, s.y > 0 ? t[1] / s.y : 1, s.z > 0 ? t[2] / s.z : 1)
+  } else {
+    const k = s.x > 0 ? M(sizeMm[0]) / s.x : 1
+    obj.scale.setScalar(Math.abs(k - 1) > 0.2 ? k : 1)
+  }
+  const b2 = new THREE.Box3().setFromObject(obj)
+  const ctr = b2.getCenter(new THREE.Vector3())
+  obj.position.set(-ctr.x, -b2.min.y, -ctr.z)
+  return obj
+}
+
+const LibraryGlb = ({ url, size, color, normalized }: { url: string; size: [number, number, number]; color?: string; normalized: boolean }) => {
   const { scene } = useGLTF(url, false, true)
   const obj = useMemo(() => {
-    const c = scene.clone(true)
-    // đặt đáy ở y = 0, tâm x/z ở 0; co theo kích thước thư viện nếu GLB sai đơn vị
-    const b = new THREE.Box3().setFromObject(c)
-    const s = b.getSize(new THREE.Vector3())
-    const k = s.x > 0 ? M(size[0]) / s.x : 1
-    c.scale.setScalar(Math.abs(k - 1) > 0.2 ? k : 1)
-    const b2 = new THREE.Box3().setFromObject(c)
-    const ctr = b2.getCenter(new THREE.Vector3())
-    c.position.set(-ctr.x, -b2.min.y, -ctr.z)
+    const c = fitToSize(scene.clone(true), size, normalized)
     if (color)
       c.traverse((o) => {
         const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined
@@ -63,14 +77,25 @@ const LibraryGlb = ({ url, size, color }: { url: string; size: [number, number, 
       if ((o as THREE.Mesh).isMesh) o.castShadow = o.receiveShadow = true
     })
     return c
-  }, [scene, size, color])
+  }, [scene, size, color, normalized])
   return <primitive object={obj} />
 }
 
-const ItemNode = ({ item, lib, floorElevation, variantId, selected, onSelect, onHover }: {
+/**
+ * Bản cần tải theo chất lượng (FR-13.01, 13.14): Nhẹ → chỉ bản nhẹ; Đẹp → bản nhẹ trước, bản đầy đủ sau.
+ * Mô hình chưa có bản nhẹ → bản đầy đủ.
+ */
+export const modelUrls = (lib: Pick<ResolvedLibraryItem, 'modelUrl' | 'modelLightUrl'>, quality: Quality): string[] => {
+  if (!lib.modelUrl) return []
+  if (!lib.modelLightUrl) return [lib.modelUrl]
+  return quality === 'light' ? [lib.modelLightUrl] : [lib.modelLightUrl, lib.modelUrl]
+}
+
+const ItemNode = ({ item, lib, floorElevation, quality, variantId, selected, onSelect, onHover }: {
   item: PlacedItem
   lib: ResolvedLibraryItem
   floorElevation: number
+  quality: Quality
   variantId?: string
   selected: boolean
   onSelect: (id: string) => void
@@ -81,6 +106,7 @@ const ItemNode = ({ item, lib, floorElevation, variantId, selected, onSelect, on
   const [box, setBox] = useState<THREE.Box3 | null>(null)
   const variant = lib.variants.find((v) => v.id === (variantId ?? item.variantId)) ?? lib.variants[0]
   const size: [number, number, number] = [M(lib.sizeMm[0]), M(lib.sizeMm[1]), M(lib.sizeMm[2])]
+  const urls = modelUrls(lib, quality)
 
   useLayoutEffect(() => {
     if (!selected || !outer.current || !inner.current) return setBox(null)
@@ -100,10 +126,12 @@ const ItemNode = ({ item, lib, floorElevation, variantId, selected, onSelect, on
       onPointerOut={() => (onHover(null), (document.body.style.cursor = ''))}
     >
       <group ref={inner}>
-        {lib.modelUrl ? (
-          <Suspense fallback={lib.fallbackShape ? <FurnitureModel model={lib.fallbackShape} size={size} color={variant?.color ?? '#999'} /> : null}>
-            <LibraryGlb url={lib.modelUrl} size={lib.sizeMm} color={variant?.color} />
-          </Suspense>
+        {urls.length ? (
+          // tải dần: khối → bản nhẹ → bản đầy đủ (bản trước là chỗ chờ của bản sau)
+          urls.reduce<ReactNode>(
+            (fallback, url) => <Suspense fallback={fallback}><LibraryGlb url={url} size={lib.sizeMm} color={variant?.color} normalized={!!lib.modelNormalized} /></Suspense>,
+            lib.fallbackShape ? <FurnitureModel model={lib.fallbackShape} size={size} color={variant?.color ?? '#999'} /> : null,
+          )
         ) : lib.fallbackShape ? (
           <FurnitureModel model={lib.fallbackShape} size={size} color={variant?.color ?? '#999'} />
         ) : (
@@ -118,8 +146,9 @@ const ItemNode = ({ item, lib, floorElevation, variantId, selected, onSelect, on
   )
 }
 
-export const FloorItems = ({ floor, libraryItems, variants, selectedItemId, onSelect, onHover }: {
+export const FloorItems = ({ floor, libraryItems, variants, selectedItemId, onSelect, onHover, quality = 'full' }: {
   floor: Floor
+  quality?: Quality
   libraryItems: Record<string, ResolvedLibraryItem>
   variants: Record<string, string>
   selectedItemId: string | null
@@ -137,6 +166,7 @@ export const FloorItems = ({ floor, libraryItems, variants, selectedItemId, onSe
           item={it}
           lib={lib}
           floorElevation={floor.elevation}
+          quality={quality}
           variantId={variants[it.id]}
           selected={selectedItemId === it.id}
           onSelect={onSelect}

@@ -66,7 +66,14 @@ export const BUDGET = {
   block: { triangles: 800_000, drawCalls: 250, textureBytes: 256 * 2 ** 20, fileBytes: 14 * 2 ** 20 },
 } as const
 
+/** Bản máy tính (item 03 lát R2, DEC-R17): đồ dùng bản đầy đủ. `BUDGET` ở trên áp cho bản điện thoại (bản nhẹ). */
+export const BUDGET_DESKTOP = {
+  warn: { triangles: 1_500_000, drawCalls: 250, textureBytes: 384 * 2 ** 20, fileBytes: 30 * 2 ** 20 },
+  block: { triangles: 3_000_000, drawCalls: 400, textureBytes: 768 * 2 ** 20, fileBytes: 45 * 2 ** 20 },
+} as const
+
 export type BudgetMetric = keyof typeof BUDGET.warn
+type Budget = { warn: Record<BudgetMetric, number>; block: Record<BudgetMetric, number> }
 export type Level = 'ok' | 'warn' | 'block'
 
 export interface BudgetTotals {
@@ -76,24 +83,57 @@ export interface BudgetTotals {
   fileBytes: number
 }
 
-export const levelOf = (t: BudgetTotals): { level: Level; reasons: string[] } => {
+export const levelOf = (t: BudgetTotals, budget: Budget = BUDGET): { level: Level; reasons: string[] } => {
   const reasons: string[] = []
   let level: Level = 'ok'
-  for (const k of Object.keys(BUDGET.warn) as BudgetMetric[]) {
-    if (t[k] > BUDGET.block[k]) {
+  for (const k of Object.keys(budget.warn) as BudgetMetric[]) {
+    if (t[k] > budget.block[k]) {
       level = 'block'
-      reasons.push(`${k} > ${BUDGET.block[k]}`)
-    } else if (t[k] > BUDGET.warn[k]) {
+      reasons.push(`${k} > ${budget.block[k]}`)
+    } else if (t[k] > budget.warn[k]) {
       if (level === 'ok') level = 'warn'
-      reasons.push(`${k} > ${BUDGET.warn[k]}`)
+      reasons.push(`${k} > ${budget.warn[k]}`)
     }
   }
   return { level, reasons }
 }
 
+/**
+ * Ngân sách một món đồ (BR-R2): vượt mức Đạt → tự giảm; sau khi giảm vẫn vượt mức Chặn (gấp đôi) → từ chối.
+ * Texture vượt cỡ luôn được thu nhỏ khi tối ưu nên chỉ tính tam giác và dung lượng.
+ */
+export const ITEM_BUDGET = {
+  full: { triangles: 50_000, texturePx: 2048, fileBytes: 3 * 2 ** 20 },
+  light: { triangles: 5_000, texturePx: 512, fileBytes: 300 * 2 ** 10 },
+} as const
+
+export const itemLevel = (r: Pick<ModelReport, 'triangles' | 'fileBytes'>, variant: keyof typeof ITEM_BUDGET): { level: Level; reasons: string[] } => {
+  const b = ITEM_BUDGET[variant]
+  const name = variant === 'full' ? 'Bản đầy đủ' : 'Bản nhẹ'
+  const reasons: string[] = []
+  let level: Level = 'ok'
+  const check = (v: number, ok: number, label: string, fmt: (n: number) => string) => {
+    if (v > ok * 2) level = 'block'
+    else if (v > ok && level === 'ok') level = 'warn'
+    if (v > ok) reasons.push(`${name}: ${label} ${fmt(v)} > ${fmt(ok)}`)
+  }
+  check(r.triangles, b.triangles, 'tam giác', (n) => n.toLocaleString('vi-VN'))
+  check(r.fileBytes, b.fileBytes, 'dung lượng', (n) => (n >= 2 ** 20 ? `${(n / 2 ** 20).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`))
+  return { level, reasons }
+}
+
+/** Lệch lớn nhất giữa kích thước đo được và khai báo, theo từng trục (BR-R4), tính bằng %. */
+export const sizeDeviation = (declared: [number, number, number], measured: [number, number, number]) =>
+  Math.max(...declared.map((d, i) => (d > 0 ? (Math.abs(measured[i] - d) / d) * 100 : 0)))
+
+export const SIZE_WARN_PCT = 3
+export const SIZE_MUST_CHOOSE_PCT = 20
+
 export interface ModelInfo {
   status: 'processing' | 'ready' | 'failed'
   report?: ModelReport | null
+  /** báo cáo bản nhẹ (đồ thư viện, item 03 lát R2) */
+  lightReport?: ModelReport | null
 }
 
 export interface CheckContext {
@@ -104,6 +144,10 @@ export interface CheckContext {
   libraryItems?: NavLibrary
   /** vật liệu mẫu nhà dùng: tên + trạng thái (item 03, FR-13.16) — thiếu id = vật liệu không còn */
   materials?: Record<string, { name: string; status: 'draft' | 'ready' | 'retired' }>
+  /** trạng thái + phạm vi đồ thư viện (item 03 lát R2, FR-13.05, BR-R3) — thiếu id = đồ không còn */
+  libraryStatus?: Record<string, { name: string; status: 'draft' | 'ready' | 'retired'; clientId: string | null }>
+  /** khách của dự án */
+  clientId?: string | null
 }
 
 /** Mô hình được tham chiếu trong một góc xem tầng: tầng + ngoại thất + cả nhà + GLB đồ thư viện trên tầng. */
@@ -121,12 +165,16 @@ export const modelsForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
   return [...ids]
 }
 
-/** Tổng chi phí hiển thị một góc xem tầng. GLB đồ thư viện dùng nhiều lần chỉ tải một lần nhưng vẽ nhiều lần. */
-export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckContext): BudgetTotals => {
+/**
+ * Tổng chi phí hiển thị một góc xem tầng. GLB đồ thư viện dùng nhiều lần chỉ tải một lần nhưng vẽ nhiều lần.
+ * `light` = bản điện thoại: đồ thư viện tính theo bản nhẹ (nếu có) — FR-13.16.
+ */
+export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckContext, variant: 'light' | 'full' = 'light'): BudgetTotals => {
   const t: BudgetTotals = { triangles: 0, drawCalls: 0, textureBytes: 0, fileBytes: 0 }
   const counted = new Set<string>()
-  const add = (id: string, times: number) => {
-    const r = ctx.models[id]?.report
+  const add = (id: string, times: number, item = false) => {
+    const m = ctx.models[id]
+    const r = item && variant === 'light' ? m?.lightReport ?? m?.report : m?.report
     if (!r) return
     t.triangles += r.triangles * times
     t.drawCalls += r.drawCalls * times
@@ -146,7 +194,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
       if (m) uses.set(m, (uses.get(m) ?? 0) + 1)
     }
   }
-  for (const [id, n] of uses) add(id, n)
+  for (const [id, n] of uses) add(id, n, true)
   return t
 }
 
@@ -155,7 +203,7 @@ export const budgetForFloor = (doc: HouseDocument, floor: Floor, ctx: CheckConte
 export interface Check {
   level: 'block' | 'warn'
   code:
-    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'STAIR_NOWHERE' | 'MATERIAL_NOT_READY' | 'MODEL_PROCESSING'
+    | 'NO_CONTENT' | 'TOUR_TOO_SHORT' | 'TOUR_NO_NEXT' | 'TOUR_SCENE_NO_TITLE' | 'TOO_MANY_FLOORS' | 'FLOOR_NOT_CALIBRATED' | 'ROOM_NOT_CLOSED' | 'ROOM_UNREACHABLE' | 'ROOM_NO_SPACE' | 'NARROW_PASSAGE' | 'ROOM_CRAMPED' | 'DOOR_BLOCKED' | 'STAIR_BLOCKED' | 'STAIR_NOWHERE' | 'MATERIAL_NOT_READY' | 'ITEM_NOT_READY' | 'ITEM_OTHER_CLIENT' | 'MODEL_PROCESSING'
     | 'MODEL_FAILED' | 'MODEL_NODE_MISSING' | 'BUDGET_BLOCK' | 'BUDGET_WARN' | 'NO_COVER'
     | 'FLOOR_NO_OUTLINE' | 'NO_DEFAULT_VIEWPOINT'
   message: string
@@ -214,6 +262,16 @@ export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => 
       if (!m || m.status !== 'ready')
         out.push({ level: 'block', code: 'MATERIAL_NOT_READY', objectId: id, message: m ? `Vật liệu "${m.name}" ${m.status === 'draft' ? 'chưa được duyệt giấy phép' : 'đã ngừng dùng'}` : 'Có vật liệu không còn trong thư viện' })
     }
+  // đồ chưa duyệt giấy phép / ngừng dùng / của khách khác (FR-13.05, FR-13.16, BR-R3)
+  if (ctx.libraryStatus)
+    for (const id of libraryItemIds(doc)) {
+      const it = ctx.libraryStatus[id]
+      if (!it) continue
+      if (it.clientId && it.clientId !== (ctx.clientId ?? null))
+        out.push({ level: 'block', code: 'ITEM_OTHER_CLIENT', objectId: id, message: `Đồ "${it.name}" thuộc khách hàng khác` })
+      else if (it.status !== 'ready')
+        out.push({ level: 'block', code: 'ITEM_NOT_READY', objectId: id, message: `Đồ "${it.name}" ${it.status === 'draft' ? 'chưa được duyệt giấy phép' : 'đã ngừng dùng'}` })
+    }
   const tourScenes = doc.tour?.scenes ?? []
   if (!hasModel3d(doc) && !tourScenes.length)
     out.push({ level: 'block', code: 'NO_CONTENT', message: 'Mẫu nhà chưa có tầng dựng hoặc tour ảnh thật' })
@@ -247,11 +305,14 @@ export const submitChecks = (doc: HouseDocument, ctx: CheckContext): Check[] => 
       if (m?.status === 'ready' && m.report && !m.report.nodeNames.includes(it.source.modelNode.nodeName))
         out.push({ level: 'block', code: 'MODEL_NODE_MISSING', floorId: f.id, objectId: it.id, message: `${f.name}: không còn đối tượng "${it.source.modelNode.nodeName}" trong mô hình` })
     }
-    const { level, reasons } = levelOf(budgetForFloor(doc, f, ctx))
-    if (level === 'block')
-      out.push({ level: 'block', code: 'BUDGET_BLOCK', floorId: f.id, message: `${f.name} vượt ngân sách hiển thị (${reasons.join(', ')})` })
-    else if (level === 'warn')
-      out.push({ level: 'warn', code: 'BUDGET_WARN', floorId: f.id, message: `${f.name} gần vượt ngân sách hiển thị (${reasons.join(', ')})` })
+    // hai bản (BR-07 mở rộng): điện thoại tải bản nhẹ của đồ, máy tính tải bản đầy đủ
+    for (const [variant, budget, label] of [['light', BUDGET, 'bản điện thoại'], ['full', BUDGET_DESKTOP, 'bản máy tính']] as const) {
+      const { level, reasons } = levelOf(budgetForFloor(doc, f, ctx, variant), budget)
+      if (level === 'block')
+        out.push({ level: 'block', code: 'BUDGET_BLOCK', floorId: f.id, message: `${f.name} vượt ngân sách hiển thị — ${label} (${reasons.join(', ')})` })
+      else if (level === 'warn')
+        out.push({ level: 'warn', code: 'BUDGET_WARN', floorId: f.id, message: `${f.name} gần vượt ngân sách hiển thị — ${label} (${reasons.join(', ')})` })
+    }
   }
 
   for (const id of referencedModels(doc)) {

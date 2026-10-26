@@ -8,6 +8,7 @@ import type { CameraApi, StairOption, ViewMode, WallMode } from '../scene/HouseS
 import type { Quality } from '../scene/surfaces.ts'
 import { BrandMark, Disclaimer, useBrand } from './Brand.tsx'
 import { ContactButtons, ContactMenu } from './Contact.tsx'
+import { CreditsDialog, creditRows } from './Credits.tsx'
 import { ItemPanel } from './ItemPanel.tsx'
 import type { ItemView } from './ItemPanel.tsx'
 import { MiniPlan } from './MiniPlan.tsx'
@@ -110,6 +111,8 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
   const [hoverItemId, setHoverItemId] = useState<string | null>(null)
   const [variants, setVariants] = useState<Record<string, string>>({})
   const [sheet, setSheet] = useState(false)
+  const [credits, setCredits] = useState(false)
+  const creditList = useMemo(() => creditRows(data.resolved), [data.resolved])
   const [ready, setReady] = useState(false)
   const [slow, setSlow] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
@@ -491,7 +494,8 @@ export const HousePage = ({ data, onLead: onLeadCtx, events = {}, previewBanner,
       <div className="show-sm">
         <ContactButtons project={data.project} onLead={onLead} onClick={events.contact} layout="bar" />
       </div>
-      <Disclaimer text={data.project.disclaimer} branding={data.branding} />
+      {credits && <CreditsDialog rows={creditList} onClose={() => setCredits(false)} />}
+      <Disclaimer text={data.project.disclaimer} branding={data.branding} onCredits={creditList.length ? () => setCredits(true) : undefined} />
     </div>
   )
 }

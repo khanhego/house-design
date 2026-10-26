@@ -62,11 +62,11 @@ export const resolveMaterial = (ctx: Ctx, m: Material, onFile?: (storageKey: str
   maps: materialMaps(ctx, m, onFile),
 })
 
-/** Đủ điều kiện duyệt (BR-R1): có nguồn + giấy phép cho phép; CC BY phải có nội dung ghi công. */
-export const approvalProblem = (m: Material): string | null => {
+/** Đủ điều kiện duyệt (BR-R1): có nguồn + giấy phép cho phép; CC BY phải có nội dung ghi công. Dùng cho cả món đồ (lát R2). */
+export const approvalProblem = (m: Pick<Material, 'license' | 'sourceKind' | 'sourceName' | 'sourceUrl' | 'attribution' | 'clientId'>): string | null => {
   if (!m.license) return 'Chưa khai giấy phép'
   if (m.sourceKind !== 'in_house' && !m.sourceName && !m.sourceUrl) return 'Chưa khai nguồn (tên kho hoặc đường dẫn gốc)'
   if (m.license === 'cc_by' && !m.attribution?.trim()) return 'Giấy phép CC BY cần nội dung ghi công'
-  if (m.license === 'client_exclusive' && !m.clientId) return 'Vật liệu độc quyền của khách phải gắn với một khách hàng'
+  if (m.license === 'client_exclusive' && !m.clientId) return 'Giấy phép độc quyền của khách phải gắn với một khách hàng'
   return null
 }

@@ -1,11 +1,15 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
+import { extname } from 'node:path'
 import { Document, NodeIO } from '@gltf-transform/core'
-import type { Node, Primitive } from '@gltf-transform/core'
+import type { Mesh, Node, Primitive } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { dedup, flatten, getBounds, join, meshopt, prune, textureCompress, transformPrimitive, weld } from '@gltf-transform/functions'
-import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
+import { clearNodeTransform, cloneDocument, dedup, flatten, getBounds, join, meshopt, prune, simplify, textureCompress, transformPrimitive, weld } from '@gltf-transform/functions'
+import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from 'meshoptimizer'
 import sharp from 'sharp'
+import { ITEM_BUDGET } from '@hd/core'
 import type { ModelReport } from '@hd/core'
+import type { ModelNormalize } from '../repos/types.ts'
+import { readModel } from './modelImport.ts'
 
 /* Tối ưu GLB (02a §7, DEC-22 v0.2, N-02). Chạy trong worker thread qua modelWorker.ts. */
 
@@ -101,9 +105,13 @@ export const reportOf = (doc: Document, fileBytes: number): ModelReport => {
     }
   })
   let textureBytes = 0
+  let maxTexturePx = 0
   for (const t of doc.getRoot().listTextures()) {
     const s = t.getSize()
-    if (s) textureBytes += Math.round((s[0] * s[1] * 4 * 4) / 3)
+    if (s) {
+      textureBytes += Math.round((s[0] * s[1] * 4 * 4) / 3)
+      maxTexturePx = Math.max(maxTexturePx, s[0], s[1])
+    }
   }
   const b = scene ? getBounds(scene) : { min: [0, 0, 0], max: [0, 0, 0] }
   return {
@@ -113,6 +121,7 @@ export const reportOf = (doc: Document, fileBytes: number): ModelReport => {
     fileBytes,
     bbox: { min: b.min as [number, number, number], max: b.max as [number, number, number] },
     nodeNames,
+    maxTexturePx,
   }
 }
 
@@ -122,16 +131,11 @@ export const makeIO = async () => {
   return new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder })
 }
 
-/** Đọc GLB/glTF, tối ưu, ghi GLB. Ném lỗi tiếng Việt khi không đọc được (EX-1). */
-export const optimizeGlb = async (input: string, output: string): Promise<{ report: ModelReport; warnings: string[] }> => {
+/** Đọc GLB/glTF/FBX/OBJ/ZIP, tối ưu, ghi GLB (mô hình tầng / cả nhà). Ném lỗi tiếng Việt khi không đọc được (EX-1). */
+export const optimizeGlb = async (input: string, output: string, ext = extname(input)): Promise<{ report: ModelReport; warnings: string[] }> => {
   const io = await makeIO()
   const warnings: string[] = []
-  let doc: Document
-  try {
-    doc = input.toLowerCase().endsWith('.gltf') ? await io.read(input) : await io.readBinary(new Uint8Array(await readFile(input)))
-  } catch (e) {
-    throw new Error(`Không đọc được tệp mô hình. Hãy xuất lại dạng GLB từ SketchUp/3ds Max/Blender. (${(e as Error).message.slice(0, 120)})`)
-  }
+  const { doc } = await readModel(io, input, ext || 'glb')
   await doc.transform(dedup(), prune())
   collapseNamed(doc)
   await doc.transform(flatten(), join({ keepNamed: true }), weld(), prune())
@@ -144,4 +148,146 @@ export const optimizeGlb = async (input: string, output: string): Promise<{ repo
   const glb = await io.writeBinary(doc)
   await writeFile(output, glb)
   return { report: reportOf(doc, glb.byteLength), warnings }
+}
+
+/* ---------- Mô hình đồ thư viện (item 03 lát R2, R2.2) ---------- */
+
+const UNIT_SCALE = { m: 1, cm: 0.01, mm: 0.001, in: 0.0254 } as const
+type Unit = keyof typeof UNIT_SCALE
+/** Cỡ hợp lý của một món đồ nội thất (cạnh lớn nhất, mét) khi không có kích thước khai báo. */
+const SANE_M: [number, number] = [0.05, 8]
+
+/** Kích thước (R, C, S) theo mét khi đặt trục `up` lên trên, với hệ số `k`. */
+const dimsOf = (size: number[], k: number, up: 'y' | 'z'): [number, number, number] =>
+  up === 'y' ? [size[0] * k, size[1] * k, size[2] * k] : [size[0] * k, size[2] * k, size[1] * k]
+
+/**
+ * Chọn đơn vị + trục đứng (BR-R4, DEC-R15). Có kích thước khai báo: chọn cặp lệch ít nhất theo từng trục
+ * (ưu tiên nhẹ mét, trục Y khi ngang nhau). Không có: trục Y, đơn vị đưa cạnh lớn nhất về 0,05–8 m.
+ */
+export const chooseFrame = (size: number[], req: Pick<ModelNormalize, 'unit' | 'upAxis' | 'declaredMm'>): { unit: Unit; upAxis: 'y' | 'z'; notes: string[] } => {
+  const units: Unit[] = req.unit === 'auto' ? ['m', 'cm', 'mm', 'in'] : [req.unit]
+  const axes: ('y' | 'z')[] = req.upAxis === 'auto' ? ['y', 'z'] : [req.upAxis]
+  const notes: string[] = []
+  let unit: Unit = units[0]
+  let upAxis: 'y' | 'z' = axes[0]
+  if (req.declaredMm) {
+    const want = req.declaredMm.map((v) => v / 1000)
+    let best = Infinity
+    for (const u of units)
+      for (const a of axes) {
+        const d = dimsOf(size, UNIT_SCALE[u], a)
+        const err = Math.max(...d.map((v, i) => Math.abs(v - want[i]) / want[i])) + (u === 'm' ? 0 : 0.001) + (a === 'y' ? 0 : 0.002)
+        if (err < best) [best, unit, upAxis] = [err, u, a]
+      }
+  } else if (req.unit === 'auto') {
+    const max = Math.max(...size)
+    unit = units.find((u) => max * UNIT_SCALE[u] >= SANE_M[0] && max * UNIT_SCALE[u] <= SANE_M[1]) ?? 'm'
+  }
+  if (req.unit === 'auto' && unit !== 'm') notes.push(`Tự nhận đơn vị ${unit === 'in' ? 'inch' : unit}, đã đổi về mét`)
+  if (req.upAxis === 'auto' && upAxis === 'z') notes.push('Mô hình dùng trục Z hướng lên, đã xoay đứng lại')
+  return { unit, upAxis, notes }
+}
+
+/** Đưa về mét, Y lên trên, gốc ở giữa đáy; nướng biến đổi vào đỉnh (mọi node về ma trận đơn vị). */
+const normalizeFrame = (doc: Document, k: number, up: 'y' | 'z') => {
+  const scene = doc.getRoot().getDefaultScene() ?? doc.getRoot().listScenes()[0]
+  if (!scene) throw new Error('Mô hình không có cảnh nào')
+  for (const s of doc.getRoot().listScenes()) if (s !== scene) s.dispose()
+  const root = doc.createNode('item_root').setScale([k, k, k])
+  // Z lên trên → xoay −90° quanh X: (x, y, z) → (x, z, −y)
+  if (up === 'z') root.setRotation([-Math.SQRT1_2, 0, 0, Math.SQRT1_2])
+  for (const c of scene.listChildren()) root.addChild(c)
+  scene.addChild(root)
+  const b = getBounds(scene)
+  root.setTranslation([-(b.min[0] + b.max[0]) / 2, -b.min[1], -(b.min[2] + b.max[2]) / 2])
+  // một mesh dùng ở nhiều node → tách bản sao trước khi nướng
+  const used = new Set<Mesh>()
+  const bake = (n: Node) => {
+    const m = n.getMesh()
+    if (m) used.has(m) ? n.setMesh(m.clone()) : used.add(m)
+    clearNodeTransform(n)
+    n.listChildren().forEach(bake)
+  }
+  bake(root)
+  // hoạt ảnh / da không dùng cho đồ nội thất
+  for (const a of doc.getRoot().listAnimations()) a.dispose()
+  for (const sk of doc.getRoot().listSkins()) sk.dispose()
+}
+
+/** Ảnh texture sharp không đọc được (EXR, TGA…) không nén được và rất nặng → bỏ, cảnh báo xuất lại JPG/PNG. */
+const dropUnreadableTextures = async (doc: Document, warnings: string[]) => {
+  for (const t of doc.getRoot().listTextures()) {
+    const img = t.getImage()
+    const ok = img && (await sharp(img).metadata().then(() => true, () => false))
+    if (ok) continue
+    warnings.push(`Bỏ ảnh texture "${t.getURI() || t.getName() || 'không tên'}" (${t.getMimeType() || 'định dạng lạ'}) — chỉ nhận JPG, PNG, WebP`)
+    t.dispose()
+  }
+}
+
+const triangles = (doc: Document) =>
+  doc.getRoot().listMeshes().flatMap((m) => m.listPrimitives()).reduce((s, p) => s + (p.getMode() === 4 ? Math.floor((p.getIndices()?.getCount() ?? p.getAttribute('POSITION')?.getCount() ?? 0) / 3) : 0), 0)
+
+/** Giảm tam giác về `target` (meshoptimizer); thử nới sai số dần tới `maxError`. */
+const reduceTo = async (doc: Document, target: number, errors: number[]) => {
+  for (const error of errors) {
+    const n = triangles(doc)
+    if (n <= target) return
+    await doc.transform(simplify({ simplifier: MeshoptSimplifier, ratio: Math.min(1, target / n), error }), prune())
+  }
+}
+
+export interface ItemResult {
+  report: ModelReport
+  lightReport: ModelReport
+  normalize: NonNullable<ModelNormalize['result']>
+  warnings: string[]
+}
+
+/**
+ * Mô hình đồ: đọc (mọi định dạng) → chuẩn hoá khung → bản đầy đủ (≤ 50.000 tam giác, texture ≤ 2.048) →
+ * bản nhẹ từ bản đầy đủ (≤ 5.000, texture ≤ 512). Ghi 2 GLB nén meshopt.
+ */
+export const optimizeItem = async (input: string, output: string, lightOutput: string, ext: string, req: ModelNormalize): Promise<ItemResult> => {
+  const io = await makeIO()
+  await MeshoptSimplifier.ready
+  const warnings: string[] = []
+  const { doc, format, warnings: readWarnings } = await readModel(io, input, ext)
+  warnings.push(...readWarnings)
+  await doc.transform(dedup(), prune())
+  const scene = doc.getRoot().getDefaultScene() ?? doc.getRoot().listScenes()[0]
+  if (!scene || !doc.getRoot().listMeshes().length) throw new Error('Mô hình không có hình khối nào')
+  const b0 = getBounds(scene)
+  const size = [0, 1, 2].map((i) => b0.max[i] - b0.min[i])
+  if (!size.every((v) => Number.isFinite(v)) || Math.max(...size) <= 0) throw new Error('Mô hình rỗng hoặc hộp bao không hợp lệ')
+  const frame = chooseFrame(size, req)
+  normalizeFrame(doc, UNIT_SCALE[frame.unit], frame.upAxis)
+  await doc.transform(flatten(), join(), weld(), prune())
+
+  await reduceTo(doc, ITEM_BUDGET.full.triangles, [0.01, 0.03])
+  await dropUnreadableTextures(doc, warnings)
+  try {
+    await doc.transform(textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [ITEM_BUDGET.full.texturePx, ITEM_BUDGET.full.texturePx] }))
+  } catch (e) {
+    warnings.push(`Bỏ qua nén texture: ${(e as Error).message.slice(0, 120)}`)
+  }
+  const light = cloneDocument(doc)
+  await reduceTo(light, ITEM_BUDGET.light.triangles, [0.05, 0.15])
+  try {
+    await light.transform(textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [ITEM_BUDGET.light.texturePx, ITEM_BUDGET.light.texturePx], quality: 70 }))
+  } catch (e) {
+    warnings.push(`Bỏ qua nén texture bản nhẹ: ${(e as Error).message.slice(0, 120)}`)
+  }
+  const write = async (d: Document, path: string) => {
+    await d.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }))
+    const glb = await io.writeBinary(d)
+    await writeFile(path, glb)
+    return reportOf(d, glb.byteLength)
+  }
+  const report = await write(doc, output)
+  const lightReport = await write(light, lightOutput)
+  const b = report.bbox
+  const measuredMm = [0, 1, 2].map((i) => Math.round((b.max[i] - b.min[i]) * 1000)) as [number, number, number]
+  return { report, lightReport, normalize: { format, scale: UNIT_SCALE[frame.unit], unit: frame.unit, upAxis: frame.upAxis, measuredMm, notes: frame.notes }, warnings }
 }

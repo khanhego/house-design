@@ -102,7 +102,8 @@ export const ItemsTab = () => {
               {libFiltered.map((l) => (
                 <li key={l.id}>
                   <span className="dot" style={{ background: l.variants[0]?.color ?? '#ccc' }} />
-                  <span className="grow">{l.name}<em>{CATEGORY[l.category]}</em></span>
+                  <span className="grow">{l.name}<em>{CATEGORY[l.category]}{l.model?.status === 'ready' ? ' · 3D' : ''}{l.clientName ? ` · của ${l.clientName}` : ''}</em></span>
+                  {l.status === 'draft' && <span className="badge badge-warn" title="Đặt thử được; chưa gửi duyệt được tới khi QTV duyệt giấy phép">Nháp</span>}
                   <Button small kind={placing === l.id ? 'primary' : 'default'} disabled={locked} onClick={() => (setPlacing(l.id), setPickMode(false))}>Đặt</Button>
                 </li>
               ))}

@@ -247,6 +247,30 @@ export interface ResolvedLibraryItem {
   modelUrl: string | null
   modelAssetId: string | null
   fallbackShape: FallbackShape | null
+  /** item 03 lát R2 — thiếu ở snapshot cũ */
+  modelLightUrl?: string | null
+  /** mô hình đã chuẩn hoá (giữa đáy, mét) → co giãn theo từng trục về `sizeMm` */
+  modelNormalized?: boolean
+  productCode?: string | null
+  /** món thuộc sản phẩm của khách (BR-R3) */
+  clientName?: string | null
+  credit?: Credit
+}
+
+/** Nguồn & giấy phép (BR-R1) — hiện ghi công cho người xem (FR-13.17). */
+export const LICENSES = ['cc0', 'cc_by', 'commercial', 'client_exclusive'] as const
+export type License = (typeof LICENSES)[number]
+export const SOURCE_KINDS = ['free_library', 'ai', 'client_file', 'in_house'] as const
+export type SourceKind = (typeof SOURCE_KINDS)[number]
+export const LICENSE_LABEL: Record<License, string> = { cc0: 'CC0 (miễn phí, không cần ghi công)', cc_by: 'CC BY (phải ghi công)', commercial: 'Thương mại đã mua', client_exclusive: 'Độc quyền của khách' }
+export const SOURCE_LABEL: Record<SourceKind, string> = { free_library: 'Kho miễn phí', ai: 'AI từ ảnh', client_file: 'File của khách', in_house: 'Đội tự làm' }
+
+export interface Credit {
+  sourceKind: SourceKind
+  sourceName: string | null
+  sourceUrl: string | null
+  license: License | null
+  attribution: string | null
 }
 
 export interface Bbox3 {
@@ -261,12 +285,17 @@ export interface ModelReport {
   fileBytes: number
   bbox: Bbox3
   nodeNames: string[]
+  /** cạnh texture lớn nhất (px) — item 03 lát R2 */
+  maxTexturePx?: number
 }
 
 export interface ResolvedModel {
   url: string
   bbox: Bbox3
   report?: ModelReport
+  /** bản nhẹ của mô hình đồ (item 03 lát R2) */
+  lightUrl?: string
+  lightReport?: ModelReport
 }
 
 export interface HouseMeta {
@@ -302,6 +331,8 @@ export interface ResolvedMaterial {
   roughness: number
   metalness: number
   maps: Partial<Record<MaterialMap, { full: string; small: string }>>
+  /** lát R2 — thiếu ở snapshot cũ */
+  credit?: Credit
 }
 
 export interface Snapshot {

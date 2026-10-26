@@ -124,6 +124,15 @@ export interface ModelOut {
   reasons: string[]
   error: string | null
   originalName: string | null
+  /** đồ chân thực (item 03 lát R2) */
+  lightUrl?: string | null
+  lightReport?: ModelReport | null
+  normalize?: {
+    unit: 'auto' | 'm' | 'cm' | 'mm' | 'in'
+    upAxis: 'auto' | 'y' | 'z'
+    declaredMm: [number, number, number] | null
+    result?: { format: string; scale: number; unit: 'm' | 'cm' | 'mm' | 'in'; upAxis: 'y' | 'z'; measuredMm: [number, number, number]; notes: string[] }
+  } | null
 }
 
 export interface LibraryRow {
@@ -139,7 +148,20 @@ export interface LibraryRow {
   modelAssetId: string | null
   fallbackShape: string | null
   variants: { id: string; name: string; color: string }[]
-  model: { id: string; status: string; level: string | null; url: string | null } | null
+  model: { id: string; status: string; level: string | null; url: string | null; lightUrl?: string | null; normalized?: boolean } | null
+  // item 03 lát R2
+  productCode: string | null
+  sourceKind: MaterialRow['sourceKind']
+  sourceName: string | null
+  sourceUrl: string | null
+  license: MaterialRow['license']
+  attribution: string | null
+  clientId: string | null
+  clientName: string | null
+  status: MaterialRow['status']
+  sizeAccepted: boolean
+  measuredMm: [number, number, number] | null
+  sizeDeviation: number | null
 }
 
 export type { Snapshot }

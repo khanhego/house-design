@@ -21,10 +21,6 @@ export const useResolvedMaterials = (clientId: string | null | undefined) => {
   return { rows: q.data?.items ?? [], resolved: useMemo(() => toResolvedMaterials(q.data?.items), [q.data]) }
 }
 
-export const LICENSE_LABEL: Record<NonNullable<MaterialRow['license']>, string> = {
-  cc0: 'CC0 (tự do)', cc_by: 'CC BY (phải ghi công)', commercial: 'Thương mại đã mua', client_exclusive: 'Độc quyền của khách',
-}
-export const SOURCE_LABEL: Record<MaterialRow['sourceKind'], string> = {
-  free_library: 'Kho miễn phí', ai: 'AI tạo từ ảnh', client_file: 'File của khách', in_house: 'Đội mình tự làm',
-}
+/** Nhãn nguồn & giấy phép dùng chung với thư viện đồ và trang Nguồn đồ & vật liệu (@hd/core). */
+export { LICENSE_LABEL, SOURCE_LABEL } from '@hd/core'
 export const STATUS_LABEL: Record<MaterialRow['status'], string> = { draft: 'Nháp — chờ duyệt', ready: 'Sẵn dùng', retired: 'Ngừng dùng' }

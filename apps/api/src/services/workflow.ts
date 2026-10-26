@@ -24,7 +24,9 @@ const mustBe = (v: Version, states: VersionState[]) => {
 
 export const checksFor = (ctx: Ctx, v: Version) => {
   const doc = JSON.parse(v.document) as HouseDocument
-  return submitChecks(doc, checkContext(ctx, doc))
+  const house = ctx.repos.houses.get(v.houseId)
+  const clientId = house ? ctx.repos.projects.get(house.projectId)?.clientId ?? null : null
+  return submitChecks(doc, checkContext(ctx, doc, clientId))
 }
 
 export const submit = (ctx: Ctx, versionId: string, user: AuthUser) => {

@@ -25,6 +25,7 @@ const optText = (max: number) => z.string().trim().max(max).nullable().optional(
 const MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf',
   glb: 'model/gltf-binary', gltf: 'model/gltf+json', dxf: 'image/vnd.dxf', mp4: 'video/mp4',
+  fbx: 'application/octet-stream', obj: 'model/obj', zip: 'application/zip',
 }
 const ALLOWED: Record<string, string[]> = {
   input: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'glb', 'gltf', 'dxf'],
@@ -35,7 +36,7 @@ const ALLOWED: Record<string, string[]> = {
   item_image: ['jpg', 'jpeg', 'png', 'webp'],
   evidence: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
   tour_clip: ['mp4'],
-  model_original: ['glb', 'gltf'],
+  model_original: ['glb', 'gltf', 'fbx', 'obj', 'zip'],
 }
 
 const TOUR_IMAGE_MAX = 25 * 2 ** 20
@@ -44,10 +45,21 @@ const TOUR_IMAGE_MAX = 25 * 2 ** 20
 const KIND_LIMIT: Partial<Record<FileKind, number>> = { tour_clip: 20 * 2 ** 20 }
 
 /** Nhận một tệp multipart, lưu vào storage, tạo bản ghi files. Trường form phải gửi trước tệp. */
-export const receiveFile = async (ctx: Ctx, req: FastifyRequest, user: AuthUser, opts: { kind?: FileKind; projectId?: string | null; kinds?: FileKind[] }) => {
+export const receiveFile = async (
+  ctx: Ctx, req: FastifyRequest, user: AuthUser,
+  opts: { kind?: FileKind; projectId?: string | null; kinds?: FileKind[]; onFields?: (fields: Record<string, string | undefined>) => void },
+) => {
   const part = await req.file({ limits: { fileSize: MAX_UPLOAD_BYTES } })
   if (!part) throw validation({ file: 'Chưa chọn tệp' })
   const fields = Object.fromEntries(Object.entries(part.fields).map(([k, v]) => [k, (v as { value?: string }).value]))
+  if (opts.onFields) {
+    try {
+      opts.onFields(fields)
+    } catch (e) {
+      part.file.resume()
+      throw e
+    }
+  }
   const kind = (opts.kind ?? fields.kind) as FileKind
   if (!kind || !(opts.kinds ?? Object.keys(ALLOWED)).includes(kind) || !ALLOWED[kind]) throw validation({ kind: 'Loại tệp không hợp lệ' })
   const ext = (part.filename.split('.').pop() ?? '').toLowerCase()
@@ -145,13 +157,18 @@ export const validateRefs = (ctx: Ctx, doc: HouseDocument, projectId: string) =>
     const m = ms.get(id)
     if (!m || m.projectId !== projectId) errs[`models.${id}`] = 'Mô hình không thuộc dự án'
   }
+  const clientId = ctx.repos.projects.get(projectId)?.clientId ?? null
   const lib = ctx.repos.library.byIds([...libIds])
-  for (const id of libIds) if (!lib.get(id) || lib.get(id)!.archived) errs[`library.${id}`] = 'Đồ thư viện không tồn tại hoặc đã lưu trữ'
+  for (const id of libIds) {
+    const it = lib.get(id)
+    if (!it || it.archived) errs[`library.${id}`] = 'Đồ thư viện không tồn tại hoặc đã lưu trữ'
+    // đồ của khách khác không dùng được (BR-R3); đồ nháp vẫn đặt thử được — chặn ở bước gửi duyệt (ITEM_NOT_READY)
+    else if (it.clientId && it.clientId !== clientId) errs[`library.${id}`] = 'Đồ thuộc khách hàng khác'
+  }
   // vật liệu (item 03): phải có trong thư viện, thuộc kho chung hoặc đúng khách của dự án (BR-R3).
   // Vật liệu nháp / ngừng dùng vẫn lưu được để sửa dần — chặn ở bước gửi duyệt (MATERIAL_NOT_READY)
   const matIds = materialIds(doc)
   if (matIds.length) {
-    const clientId = ctx.repos.projects.get(projectId)?.clientId ?? null
     const mats = ctx.repos.materials.byIds(matIds)
     for (const id of matIds) {
       const m = mats.get(id)

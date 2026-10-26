@@ -3,7 +3,7 @@ import type { HouseDocument } from '@hd/core'
 import { nowIso, parseJson } from '../db/sqlite.ts'
 import type { Db, Row } from '../db/sqlite.ts'
 import type {
-  Client, FileKind, FileRow, House, LibraryItem, Material, ModelAsset, Project, Review, Submission, User, Version,
+  Client, FileKind, FileRow, House, LibraryItem, Material, ModelAsset, ModelNormalize, Project, Review, Submission, User, Version,
 } from './types.ts'
 
 /* Repository SQL thuần (DEC-21). Mỗi hàm map hàng ↔ object camelCase. */
@@ -393,17 +393,30 @@ const toModel = (r: Row): ModelAsset => ({
   report: parseJson(r.report_json, null),
   level: (r.level as ModelAsset['level']) ?? null,
   reasons: parseJson(r.reasons_json, []),
+  lightFileId: (r.light_file_id as string) ?? null,
+  lightReport: parseJson(r.light_report_json, null),
+  normalize: parseJson(r.normalize_json, null),
   createdBy: (r.created_by as string) ?? null,
   createdAt: r.created_at as string,
   updatedAt: r.updated_at as string,
 })
 
 export const models = (db: Db) => ({
-  create(m: Pick<ModelAsset, 'projectId' | 'originalFileId' | 'createdBy'>): ModelAsset {
+  create(m: Pick<ModelAsset, 'projectId' | 'originalFileId' | 'createdBy'> & { normalize?: ModelNormalize | null }): ModelAsset {
     const id = newId('mdl')
     const t = nowIso()
-    db.run('INSERT INTO model_assets (id, project_id, original_file_id, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?)', id, m.projectId, m.originalFileId, m.createdBy, t, t)
+    db.run(
+      'INSERT INTO model_assets (id, project_id, original_file_id, normalize_json, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+      id, m.projectId, m.originalFileId, m.normalize ? JSON.stringify(m.normalize) : null, m.createdBy, t, t,
+    )
     return this.get(id)!
+  },
+  /** Xử lý lại với yêu cầu chuẩn hoá mới (R2.2). */
+  restart(id: string, normalize: ModelNormalize) {
+    db.run(
+      "UPDATE model_assets SET status='processing', error=NULL, normalize_json=?, updated_at=? WHERE id=?",
+      JSON.stringify(normalize), nowIso(), id,
+    )
   },
   get: (id: string) => {
     const r = db.get('SELECT * FROM model_assets WHERE id = ?', id)
@@ -414,10 +427,15 @@ export const models = (db: Db) => ({
     const rows = db.all(`SELECT * FROM model_assets WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids).map(toModel)
     return new Map(rows.map((m) => [m.id, m]))
   },
-  finish(id: string, p: { status: 'ready' | 'failed'; optimizedFileId?: string; report?: unknown; level?: string; reasons?: string[]; error?: string }) {
+  finish(id: string, p: {
+    status: 'ready' | 'failed'; optimizedFileId?: string; report?: unknown; level?: string; reasons?: string[]; error?: string
+    lightFileId?: string; lightReport?: unknown; normalize?: ModelNormalize | null
+  }) {
+    const keep = p.normalize === undefined ? this.get(id)?.normalize ?? null : p.normalize
     db.run(
-      'UPDATE model_assets SET status=?, optimized_file_id=?, report_json=?, level=?, reasons_json=?, error=?, updated_at=? WHERE id=?',
-      p.status, p.optimizedFileId ?? null, p.report ? JSON.stringify(p.report) : null, p.level ?? null, JSON.stringify(p.reasons ?? []), p.error ?? null, nowIso(), id,
+      'UPDATE model_assets SET status=?, optimized_file_id=?, report_json=?, level=?, reasons_json=?, error=?, light_file_id=?, light_report_json=?, normalize_json=?, updated_at=? WHERE id=?',
+      p.status, p.optimizedFileId ?? null, p.report ? JSON.stringify(p.report) : null, p.level ?? null, JSON.stringify(p.reasons ?? []), p.error ?? null,
+      p.lightFileId ?? null, p.lightReport ? JSON.stringify(p.lightReport) : null, keep ? JSON.stringify(keep) : null, nowIso(), id,
     )
   },
 })
@@ -436,21 +454,35 @@ const toLibrary = (r: Row): LibraryItem => ({
   modelAssetId: (r.model_asset_id as string) ?? null,
   fallbackShape: (r.fallback_shape as LibraryItem['fallbackShape']) ?? null,
   variants: parseJson(r.variants_json, []),
+  productCode: (r.product_code as string) ?? null,
+  sourceKind: (r.source_kind as LibraryItem['sourceKind']) ?? 'in_house',
+  sourceName: (r.source_name as string) ?? null,
+  sourceUrl: (r.source_url as string) ?? null,
+  license: (r.license as LibraryItem['license']) ?? null,
+  attribution: (r.attribution as string) ?? null,
+  clientId: (r.client_id as string) ?? null,
+  status: (r.status as LibraryItem['status']) ?? 'draft',
+  approvedBy: (r.approved_by as string) ?? null,
+  approvedAt: (r.approved_at as string) ?? null,
+  sizeAccepted: bool(r.size_accepted),
   archived: bool(r.archived),
   createdAt: r.created_at as string,
   updatedAt: r.updated_at as string,
 })
 
-export type LibraryInput = Omit<LibraryItem, 'id' | 'archived' | 'createdAt' | 'updatedAt'>
+type LibraryMeta = 'productCode' | 'sourceKind' | 'sourceName' | 'sourceUrl' | 'license' | 'attribution' | 'clientId' | 'status' | 'approvedBy' | 'approvedAt' | 'sizeAccepted'
+/** Nguồn, phạm vi, trạng thái tuỳ chọn khi tạo: mặc định đội tự làm · kho chung · nháp. */
+export type LibraryInput = Omit<LibraryItem, 'id' | 'archived' | 'createdAt' | 'updatedAt' | LibraryMeta> & Partial<Pick<LibraryItem, LibraryMeta>>
 
 export const library = (db: Db) => ({
   create(i: LibraryInput): LibraryItem {
     const id = newId('lib')
     const t = nowIso()
     db.run(
-      'INSERT INTO library_items (id, name, category, size_json, material, brand, description, image_file_ids_json, model_asset_id, fallback_shape, variants_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      'INSERT INTO library_items (id, name, category, size_json, material, brand, description, image_file_ids_json, model_asset_id, fallback_shape, variants_json, product_code, source_kind, source_name, source_url, license, attribution, client_id, status, approved_by, approved_at, size_accepted, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
       id, i.name, i.category, JSON.stringify(i.sizeMm), i.material, i.brand, i.description, JSON.stringify(i.imageFileIds), i.modelAssetId, i.fallbackShape,
-      JSON.stringify(i.variants), t, t,
+      JSON.stringify(i.variants), i.productCode ?? null, i.sourceKind ?? 'in_house', i.sourceName ?? null, i.sourceUrl ?? null, i.license ?? null, i.attribution ?? null,
+      i.clientId ?? null, i.status ?? 'draft', i.approvedBy ?? null, i.approvedAt ?? null, i.sizeAccepted ?? false, t, t,
     )
     return this.get(id)!
   },
@@ -463,10 +495,21 @@ export const library = (db: Db) => ({
     const rows = db.all(`SELECT * FROM library_items WHERE id IN (${ids.map(() => '?').join(',')})`, ...ids).map(toLibrary)
     return new Map(rows.map((m) => [m.id, m]))
   },
-  list: (f: { q?: string; category?: string; includeArchived?: boolean } = {}) => {
+  /** Kho chung + của khách `clientId` (BR-R3); `allClients` cho QTV xem hết. Mặc định ẩn món ngừng dùng. */
+  list: (f: { q?: string; category?: string; includeArchived?: boolean; clientId?: string | null; allClients?: boolean; includeRetired?: boolean; status?: string } = {}) => {
     const where: string[] = []
     const params: string[] = []
     if (!f.includeArchived) where.push('archived = 0')
+    if (f.status) {
+      where.push('status = ?')
+      params.push(f.status)
+    } else if (!f.includeRetired) where.push("status <> 'retired'")
+    if (!f.allClients) {
+      if (f.clientId) {
+        where.push('(client_id IS NULL OR client_id = ?)')
+        params.push(f.clientId)
+      } else where.push('client_id IS NULL')
+    }
     if (f.category) {
       where.push('category = ?')
       params.push(f.category)
@@ -482,9 +525,10 @@ export const library = (db: Db) => ({
     if (!cur) return undefined
     const n = { ...cur, ...p }
     db.run(
-      'UPDATE library_items SET name=?, category=?, size_json=?, material=?, brand=?, description=?, image_file_ids_json=?, model_asset_id=?, fallback_shape=?, variants_json=?, archived=?, updated_at=? WHERE id=?',
+      'UPDATE library_items SET name=?, category=?, size_json=?, material=?, brand=?, description=?, image_file_ids_json=?, model_asset_id=?, fallback_shape=?, variants_json=?, product_code=?, source_kind=?, source_name=?, source_url=?, license=?, attribution=?, client_id=?, status=?, approved_by=?, approved_at=?, size_accepted=?, archived=?, updated_at=? WHERE id=?',
       n.name, n.category, JSON.stringify(n.sizeMm), n.material, n.brand, n.description, JSON.stringify(n.imageFileIds), n.modelAssetId, n.fallbackShape,
-      JSON.stringify(n.variants), n.archived, nowIso(), id,
+      JSON.stringify(n.variants), n.productCode, n.sourceKind, n.sourceName, n.sourceUrl, n.license, n.attribution, n.clientId, n.status, n.approvedBy, n.approvedAt,
+      n.sizeAccepted, n.archived, nowIso(), id,
     )
     return this.get(id)!
   },

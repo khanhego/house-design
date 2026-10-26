@@ -1,13 +1,13 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Html, Sky } from '@react-three/drei'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import * as THREE from 'three'
 import { bboxOf, pointInPolygon, roomLabelPoint, sortedFloors, stairObstacles, wallsOutline } from '@hd/core'
 import type { Floor, HouseDocument, ModelRef, Point, Snapshot } from '@hd/core'
 import { FloorGroup } from './FloorGroup.tsx'
 import type { WallMode } from './FloorGroup.tsx'
 import { FloorItems } from './Items.tsx'
+import { EnvironmentLight } from './environment.tsx'
 import { GlbModel } from './GlbModel.tsx'
 import { MAT } from './materials.ts'
 import { M } from './units.ts'
@@ -84,24 +84,6 @@ export const houseBounds = (doc: HouseDocument): HouseBounds => {
 }
 
 /* ---------- ánh sáng ---------- */
-
-/** Phản chiếu môi trường (item 03, DEC-R11): RoomEnvironment dựng sẵn trong three — không tải ảnh HDRI. */
-const EnvironmentLight = ({ intensity }: { intensity: number }) => {
-  const gl = useThree((s) => s.gl)
-  const scene = useThree((s) => s.scene)
-  useEffect(() => {
-    const pm = new THREE.PMREMGenerator(gl)
-    const env = pm.fromScene(new RoomEnvironment(), 0.04).texture
-    scene.environment = env
-    return () => {
-      scene.environment = null
-      env.dispose()
-      pm.dispose()
-    }
-  }, [gl, scene])
-  useEffect(() => void (scene.environmentIntensity = intensity), [scene, intensity])
-  return null
-}
 
 const Lights = ({ bounds, night, floor, lowPower, northDeg, hour, quality }: { bounds: HouseBounds; night: boolean; floor: Floor | null; lowPower: boolean; northDeg?: number; hour?: number; quality: Quality }) => {
   const span = Math.max(M(bounds.w), M(bounds.d), 8)
@@ -781,7 +763,7 @@ const SceneContent = (p: HouseSceneProps & { lowPower: boolean }) => {
             {f.modelRef && (
               <Model data={data} modelRef={f.modelRef} floorElevationM={M(f.elevation)} wallMode={isCurrent ? effWallMode : 'full'} target={target} topClipY={null} floorId={f.id} onPick={pickNode} selectedNode={selectedNodeItem} />
             )}
-            <FloorItems floor={f} libraryItems={data.resolved.libraryItems} variants={variants} selectedItemId={selectedItemId} onSelect={p.onSelectItem} onHover={p.onHoverItem} />
+            <FloorItems floor={f} libraryItems={data.resolved.libraryItems} variants={variants} selectedItemId={selectedItemId} onSelect={p.onSelectItem} onHover={p.onHoverItem} quality={quality} />
           </group>
         )
       })}
