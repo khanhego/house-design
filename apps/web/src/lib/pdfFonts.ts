@@ -16,7 +16,7 @@ let fontCache: { regular: string; bold: string } | null = null
 /** Nạp (một lần) và đăng ký font Be Vietnam Pro thường + đậm vào tài liệu jsPDF. */
 export const registerPdfFonts = async (doc: jsPDF) => {
   if (!fontCache) {
-    const [r, b] = await Promise.all(['/fonts/BeVietnamPro-Regular.ttf', '/fonts/BeVietnamPro-SemiBold.ttf'].map((u) => fetch(u).then((x) => x.arrayBuffer())))
+    const [r, b] = await Promise.all([`${import.meta.env.BASE_URL}fonts/BeVietnamPro-Regular.ttf`, `${import.meta.env.BASE_URL}fonts/BeVietnamPro-SemiBold.ttf`].map((u) => fetch(u).then((x) => x.arrayBuffer())))
     fontCache = { regular: toBase64(r), bold: toBase64(b) }
   }
   doc.addFileToVFS('BeVietnamPro-Regular.ttf', fontCache.regular)

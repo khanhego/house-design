@@ -159,7 +159,7 @@ const DefaultPolicy = () => (
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <Routes>
         <Route path="/v/:project" element={<ProjectRoute />} />
         <Route path="/v/:project/chinh-sach-du-lieu" element={<PrivacyRoute />} />

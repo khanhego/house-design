@@ -64,6 +64,7 @@ export const createTracker = (o: { projectSlug: string; source: 'link' | 'qr' | 
   const deviceId = deviceIdOf(local)
   let queue: { type: EventType; houseSlug?: string; targetId?: string; ts: string; sid: string }[] = []
   const send = o.send ?? ((body, keepalive) => {
+    if (import.meta.env.VITE_STATIC === '1') return // bản demo tĩnh: không có máy chủ nhận sự kiện
     void fetch('/api/v1/public/events', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' }, body, keepalive }).catch(() => {})
   })
   const flush = (keepalive = false) => {

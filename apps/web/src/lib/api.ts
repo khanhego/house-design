@@ -20,7 +20,30 @@ export interface ApiOptions {
   keepalive?: boolean
 }
 
+/**
+ * Bản demo tĩnh (GitHub Pages, `VITE_STATIC=1`): không có máy chủ — đọc dữ liệu công khai đã xuất sẵn ở
+ * `<base>static-api/…json` (scripts/export-static.ts); các thao tác cần máy chủ báo rõ là không có trong bản demo.
+ */
+export const STATIC_DEMO = import.meta.env.VITE_STATIC === '1'
+const BASE = import.meta.env.BASE_URL
+
+const staticApi = async <T>(method: string, path: string): Promise<T> => {
+  const p = path.split('?')[0]
+  if (method === 'GET' && p.startsWith('/api/v1/public/')) {
+    let res: Response
+    try {
+      res = await fetch(`${BASE}static-api/${p.slice('/api/v1/public/'.length)}.json`)
+    } catch {
+      throw new ApiError(0, { error: { code: 'NETWORK', message: 'Không tải được dữ liệu. Kiểm tra mạng rồi thử lại.' } })
+    }
+    if (!res.ok) throw new ApiError(404, { error: { code: 'NOT_FOUND', message: 'Không tìm thấy.' } })
+    return (await res.json()) as T
+  }
+  throw new ApiError(503, { error: { code: 'STATIC_DEMO', message: 'Đây là bản demo trên GitHub Pages, chức năng này cần máy chủ thật. Vui lòng liên hệ trực tiếp qua số điện thoại.' } })
+}
+
 export const api = async <T>(method: string, path: string, body?: unknown, opts: ApiOptions = {}): Promise<T> => {
+  if (STATIC_DEMO) return staticApi<T>(method, path.startsWith('/') ? path : `/api/v1/${path}`)
   const headers: Record<string, string> = { 'X-Requested-With': 'fetch' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (opts.ifMatch !== undefined) headers['If-Match'] = String(opts.ifMatch)

@@ -19,6 +19,8 @@ const spaFallback = (): Plugin => ({
 })
 
 export default defineConfig({
+  // bản demo tĩnh trên GitHub Pages chạy dưới /<tên repo>/ (VITE_BASE); máy chủ thật chạy ở gốc
+  base: process.env.VITE_BASE ?? '/',
   plugins: [react(), spaFallback()],
   server: {
     port: 5173,

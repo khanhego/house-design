@@ -1,0 +1,78 @@
+# CI/CD: kiểm tra (lint, unit, mô phỏng đi bộ, E2E) rồi đưa bản demo tĩnh của trang xem nhà lên GitHub Pages.
+# Bản demo tĩnh: dữ liệu nhà mẫu (seed) xuất sẵn thành JSON — không có máy chủ, không có dữ liệu khách hàng.
+name: CI/CD
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint · unit · E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: npm
+      - run: npm ci
+      - name: Lint (tsc)
+        run: npm run lint
+      - name: Unit + mô phỏng đi bộ bằng bộ vật lý
+        run: npm test
+      - name: E2E (Playwright, Chrome)
+        run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  pages:
+    name: Deploy demo lên GitHub Pages
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}v/sunrise-garden
+    env:
+      VITE_BASE: /${{ github.event.repository.name }}/
+      VITE_STATIC: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: npm
+      - run: npm ci
+      - name: Build web (base /<repo>/, chế độ demo tĩnh)
+        run: npm run build
+      - name: Xuất dữ liệu nhà mẫu thành JSON + file
+        run: node scripts/export-static.ts
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
